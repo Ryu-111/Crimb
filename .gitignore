@@ -1,0 +1,20 @@
+node_modules
+dist
+coverage
+playwright-report
+test-results
+*.local
+.DS_Store
+# MediaPipe の wasm / モデルは scripts/fetch-models.mjs で取得（コミットしない）
+public/mediapipe/
+# Android ビルド成果物
+android/app/build
+android/build
+android/.gradle
+android/local.properties
+android/app/src/main/assets/public
+android/capacitor-cordova-android-plugins
+*.keystore
+*.jks
+pose-results
+.lighthouseci

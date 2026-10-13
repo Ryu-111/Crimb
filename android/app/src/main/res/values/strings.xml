@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Crimb</string>
+    <string name="title_activity_main">Crimb</string>
+    <string name="package_name">app.crimb.climb</string>
+    <string name="custom_url_scheme">app.crimb.climb</string>
+</resources>

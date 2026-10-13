@@ -1,0 +1,29 @@
+name: Release
+
+# v* タグを push すると署名済み APK を作り、GitHub Release に添付する
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  android:
+    uses: ./.github/workflows/android.yml
+    with:
+      release: true
+    secrets: inherit
+
+  release:
+    needs: android
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: android-release
+          path: out
+      - uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: out/*

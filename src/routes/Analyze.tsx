@@ -1,0 +1,64 @@
+import { useEffect, useState } from 'react'
+import { Navigate, useNavigate } from 'react-router-dom'
+import { analyze } from '../analysis/metrics'
+import { captureThumbnail, extractPoseTrack, loadVideo } from '../pose/extractFrames'
+import { useDraft } from '../lib/draft'
+
+export default function Analyze() {
+  const { draft, setDraft } = useDraft()
+  const navigate = useNavigate()
+  const [progress, setProgress] = useState(0)
+  const [stage, setStage] = useState('モデルを準備中…')
+  const [error, setError] = useState<string>()
+
+  useEffect(() => {
+    if (!draft) return
+    const ctrl = new AbortController()
+    ;(async () => {
+      try {
+        const video = await loadVideo(draft.url)
+        setStage('姿勢を推定中…')
+        const track = await extractPoseTrack(video, { onProgress: setProgress, signal: ctrl.signal })
+        setStage('ムーブを解析中…')
+        const analysis = analyze(track)
+        // E2E / 解析回帰テストから結果を読むためのフック
+        ;(window as unknown as { __crimbLastAnalysis?: unknown }).__crimbLastAnalysis = analysis
+        const thumbnail = await captureThumbnail(video, Math.min(video.duration / 2, 3))
+        setDraft({ ...draft, track, analysis, thumbnail, createdAt: Date.now() })
+        navigate('/result', { replace: true })
+      } catch (e) {
+        if ((e as Error).name !== 'AbortError') setError((e as Error).message)
+      }
+    })()
+    return () => ctrl.abort()
+    // draft.url が変わったときだけ再解析する
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draft?.url])
+
+  if (!draft) return <Navigate to="/new" replace />
+
+  return (
+    <section className="flex min-h-[60vh] flex-col items-center justify-center gap-4 text-center">
+      {error ? (
+        <>
+          <p className="text-rose-400">解析に失敗しました: {error}</p>
+          <button className="rounded-lg bg-slate-800 px-4 py-2" onClick={() => navigate('/new')}>
+            戻る
+          </button>
+        </>
+      ) : (
+        <>
+          <div className="text-4xl">🧗</div>
+          <p>{stage}</p>
+          <div className="h-3 w-full overflow-hidden rounded-full bg-slate-800">
+            <div className="h-full bg-accent transition-all" style={{ width: `${Math.round(progress * 100)}%` }} />
+          </div>
+          <p className="text-sm text-slate-400">{Math.round(progress * 100)}%</p>
+          <button className="text-sm text-slate-400 underline" onClick={() => navigate('/new')}>
+            中止
+          </button>
+        </>
+      )}
+    </section>
+  )
+}

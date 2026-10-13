@@ -1,0 +1,41 @@
+name: PR preview
+
+# PR ごとに https://<owner>.github.io/<repo>/pr-preview/pr-<番号>/ へ公開し、URL を PR にコメント。
+# PR を閉じると自動で削除される
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, closed]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: preview-${{ github.ref }}
+
+jobs:
+  preview:
+    # フォークからの PR は書き込み権限が無いため対象外
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        if: github.event.action != 'closed'
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+        if: github.event.action != 'closed'
+      - uses: actions/cache@v4
+        if: github.event.action != 'closed'
+        with:
+          path: public/mediapipe/models
+          key: mediapipe-model-v1
+      - run: npm run build
+        if: github.event.action != 'closed'
+      - uses: rossjrw/pr-preview-action@v1
+        with:
+          source-dir: dist
+          preview-branch: gh-pages
+          umbrella-dir: pr-preview

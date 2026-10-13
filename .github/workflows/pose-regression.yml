@@ -38,7 +38,8 @@ jobs:
       - run: npx playwright install --with-deps chromium
       - run: npm run build
       - name: 実動画での解析 (test-fixtures/)
-        run: npx playwright test --grep @pose --project android
+        # 動画が未配置ならテスト 0 件で成功扱い（合成データのテストは上のステップで実行済み）
+        run: npx playwright test --grep @pose --project android --pass-with-no-tests
       - uses: actions/upload-artifact@v4
         if: always()
         with:

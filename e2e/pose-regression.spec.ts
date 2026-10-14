@@ -48,6 +48,9 @@ test.describe('@pose regression', () => {
 
       const outDir = join(process.cwd(), 'pose-results')
       mkdirSync(outDir, { recursive: true })
+      // しきい値調整用に姿勢の時系列も保存（pose-results/ は .gitignore 済み）
+      const track = await page.evaluate(() => (globalThis as unknown as { __crimbLastTrack: unknown }).__crimbLastTrack)
+      writeFileSync(join(outDir, `${file}.track.json`), JSON.stringify(track))
       writeFileSync(
         join(outDir, `${file}.json`),
         JSON.stringify({ bodyWarning, metrics: result.metrics, advice: result.advice.map((a) => a.id) }, null, 2),

@@ -20,7 +20,7 @@ const base: Metrics = {
   verticalGain: 2,
   fallAt: null,
 }
-const ctx = { stills: [], limbMoves: [], track: { fps: 15, width: 1, height: 1, frames: [] }, torso: 0.1, elbowSamples: 1 }
+const ctx = { stills: [], limbMoves: [], track: { fps: 15, width: 1, height: 1, frames: [] }, torso: 0.1, elbowSamples: 100 }
 const ids = (m: Partial<Metrics>) => buildAdvice({ ...base, ...m }, ctx).map((a) => a.id)
 
 describe('buildAdvice thresholds', () => {

@@ -46,7 +46,7 @@ export default function Analyze() {
         setStage('ムーブを解析中…')
         const analysis = analyze(track, draft.meta.wallAngle, draft.meta.sent)
         // E2E / 解析回帰テストから結果を読むためのフック
-        ;(window as unknown as { __crimbLastAnalysis?: unknown }).__crimbLastAnalysis = analysis
+        ;Object.assign(window, { __crimbLastAnalysis: analysis, __crimbLastTrack: track })
         const thumbnail = await captureThumbnail(video, Math.min(video.duration / 2, 3))
         setDraft({ ...draft, track, analysis, thumbnail, createdAt: Date.now() })
         navigate('/result', { replace: true })

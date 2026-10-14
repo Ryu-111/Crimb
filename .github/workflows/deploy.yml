@@ -34,5 +34,20 @@ jobs:
           branch: gh-pages
           clean-exclude: pr-preview/
           force: false
-      - name: URL をサマリーに出力
-        run: echo "📱 https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/" >> "$GITHUB_STEP_SUMMARY"
+      - name: 公開されたか確認
+        env:
+          OWNER: ${{ github.repository_owner }}
+          REPO: ${{ github.event.repository.name }}
+        run: |
+          url="https://${OWNER,,}.github.io/${REPO}/"
+          # 今回のビルドの JS ファイル名（ハッシュ付き）が本番の index.html に載るまで待つ
+          expected=$(grep -o 'assets/index-[^"]*\.js' dist/index.html | head -1)
+          for i in $(seq 1 40); do
+            if curl -fsS "$url?t=$i" | grep -q "$expected"; then
+              echo "✅ 公開を確認しました: $url" >> "$GITHUB_STEP_SUMMARY"
+              exit 0
+            fi
+            sleep 15
+          done
+          echo "::error::10 分待っても $url に今回のビルド（$expected）が反映されませんでした。Settings → Pages の公開元が gh-pages ブランチになっているか確認してください"
+          exit 1

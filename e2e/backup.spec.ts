@@ -57,3 +57,32 @@ test('import a backup, review growth and timeline, export and delete', async ({ 
   await page.getByRole('link', { name: '履歴' }).click()
   await expect(page.getByText('まだ記録がありません')).toBeVisible()
 })
+
+test('filter history and edit a session', async ({ page }, info) => {
+  const file = info.outputPath('backup.json')
+  backupFile(file)
+  await page.goto('./#/settings')
+  await page.getByTestId('import-input').setInputFiles(file)
+  await expect(page.getByRole('status')).toHaveText(/2 件を読み込みました/)
+
+  await page.getByRole('link', { name: '履歴' }).click()
+  const list = page.getByTestId('session-list').getByRole('link')
+  await expect(list).toHaveCount(2)
+  await page.getByLabel('結果').selectOption('false')
+  await expect(list).toHaveCount(1)
+  await page.getByLabel('課題名で検索').fill('存在しない')
+  await expect(page.getByText('条件に合う記録がありません')).toBeVisible()
+  await page.getByLabel('課題名で検索').fill('')
+
+  await list.first().click()
+  await page.getByRole('button', { name: '記録を編集' }).click()
+  await page.getByPlaceholder('例: 黄色テープ 3番').fill('編集後の課題')
+  await page.getByPlaceholder('例: 3手目のヒールが決まらない').fill('足が抜けた')
+  await page.getByRole('button', { name: '変更を保存' }).click()
+  await expect(page.getByRole('heading', { name: '編集後の課題' })).toBeVisible()
+  await expect(page.getByText('足が抜けた')).toBeVisible()
+
+  await page.getByRole('link', { name: '履歴' }).click()
+  await page.getByLabel('結果').selectOption('')
+  await expect(page.getByTestId('session-list').getByText('編集後の課題')).toBeVisible()
+})

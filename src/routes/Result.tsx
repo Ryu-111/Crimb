@@ -4,6 +4,7 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { analyze } from '../analysis/metrics'
 import type { Analysis, PoseTrack } from '../analysis/types'
 import AdviceList from '../components/AdviceList'
+import MetaFields from '../components/MetaFields'
 import MetricGrid from '../components/MetricGrid'
 import Timeline from '../components/Timeline'
 import VideoOverlay, { type VideoOverlayHandle } from '../components/VideoOverlay'
@@ -36,6 +37,7 @@ function ResultView({ meta, createdAt, track, analysis, videoUrl, children }: Vi
         <p className="text-sm text-slate-400">
           {meta.grade} ・ {meta.wallAngle} ・ {meta.sent ? '完登' : 'トライ'} ・ {formatDate(createdAt)}
         </p>
+        {meta.notes && <p className="mt-1 text-sm whitespace-pre-wrap text-slate-300">{meta.notes}</p>}
       </header>
       <VideoOverlay ref={overlay} src={videoUrl} track={track} />
       <Timeline analysis={analysis} duration={metrics.durationSec} onSeek={seek} />
@@ -118,6 +120,7 @@ export function SavedResult() {
   const track = useLiveQuery(() => db.tracks.get(id), [id])
   const video = useLiveQuery(() => db.videos.get(id), [id])
   const videoUrl = useObjectUrl(video?.blob)
+  const [editing, setEditing] = useState<SessionMeta>()
 
   // 解析ロジックが改善されたときに古い記録にも新しい改善案を出せるよう、保存済みの姿勢から再計算
   const analysis = useMemo(() => (track ? analyze(track.track) : undefined), [track])
@@ -131,6 +134,11 @@ export function SavedResult() {
     navigate('/', { replace: true })
   }
 
+  const saveEdit = async () => {
+    await db.sessions.update(id, { ...editing! })
+    setEditing(undefined)
+  }
+
   return (
     <ResultView
       meta={session}
@@ -139,6 +147,34 @@ export function SavedResult() {
       analysis={analysis}
       videoUrl={videoUrl}
     >
+      {editing ? (
+        <div className="space-y-3 rounded-xl bg-slate-800/50 p-4">
+          <MetaFields meta={editing} onChange={setEditing} />
+          <div className="grid grid-cols-2 gap-2">
+            <button className="rounded-lg bg-slate-800 py-2" onClick={() => setEditing(undefined)}>
+              キャンセル
+            </button>
+            <button className="rounded-lg bg-accent py-2 font-bold text-slate-950" onClick={saveEdit}>
+              変更を保存
+            </button>
+          </div>
+        </div>
+      ) : (
+        <button
+          className="w-full rounded-lg bg-slate-800 py-2 text-sm"
+          onClick={() =>
+            setEditing({
+              problemName: session.problemName,
+              grade: session.grade,
+              wallAngle: session.wallAngle,
+              sent: session.sent,
+              notes: session.notes,
+            })
+          }
+        >
+          記録を編集
+        </button>
+      )}
       <button className="w-full rounded-lg border border-rose-500/50 py-2 text-sm text-rose-400" onClick={remove}>
         この記録を削除
       </button>

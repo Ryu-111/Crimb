@@ -23,7 +23,7 @@ PR を出すと CI / E2E / Lighthouse / プレビュー / APK が自動で走る
 - [x] **全データ削除**（設定画面、確認ダイアログ付き）と、使用容量の表示（`navigator.storage.estimate()`）
 - [x] **履歴の絞り込み**: グレード・完登/トライ・課題名検索
 - [x] **記録の編集**: 課題名・グレード・メモを保存後に変更（`SessionMeta.notes` は入力 UI 未実装）
-- [ ] **テスト拡充**: `segments.ts` の境界値、`smoothing.ts` の長い欠損、`rules.ts` の各しきい値ちょうどのケース
+- [x] **テスト拡充**: `segments.ts` の境界値、`smoothing.ts` の長い欠損、`rules.ts` の各しきい値ちょうどのケース
 - [x] **E2E 追加**: 全削除、成長グラフ表示、インポート（重複スキップ）・エクスポート（`e2e/backup.spec.ts`）
 
 ## Claude 向け

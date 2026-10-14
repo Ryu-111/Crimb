@@ -16,3 +16,18 @@ describe('smoothing', () => {
     expect(out[1]!.lm![0]!.x).toBeCloseTo(1)
   })
 })
+
+describe('long gaps', () => {
+  it('keeps a gap longer than the limit empty and still interpolates later short gaps', () => {
+    const out = fillGaps([f(0, 0), f(0.3, null), f(0.6, null), f(0.9, 3), f(1.0, null), f(1.1, 5)])
+    expect(out[1]!.lm).toBeNull()
+    expect(out[2]!.lm).toBeNull()
+    expect(out[4]!.lm![0]!.x).toBeCloseTo(4)
+  })
+
+  it('leaves leading and trailing missing frames untouched', () => {
+    const out = fillGaps([f(0, null), f(0.1, 1), f(0.2, null)])
+    expect(out[0]!.lm).toBeNull()
+    expect(out[2]!.lm).toBeNull()
+  })
+})

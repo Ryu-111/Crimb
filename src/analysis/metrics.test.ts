@@ -50,7 +50,8 @@ describe('analyze', () => {
   it('does not report the drop after a completed send as a fall', () => {
     const fell = analyze(climb({ fall: true }))
     const { metrics, advice } = analyze(climb({ fall: true }), undefined, true)
-    expect(metrics.fallAt).toBe(fell.metrics.fallAt)
+    expect(metrics.fallAt).toBeNull()
+    // 飛び降り区間は登りの指標から除外される
     expect(metrics.moveCount).toBe(fell.metrics.moveCount)
     expect(advice.map((a) => a.id)).not.toContain('fall')
   })

@@ -18,3 +18,4 @@ android/capacitor-cordova-android-plugins
 *.jks
 pose-results
 .lighthouseci
+.claude/worktrees/

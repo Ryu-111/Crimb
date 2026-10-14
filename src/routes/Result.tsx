@@ -1,11 +1,12 @@
 import { useMemo, useRef, useState } from 'react'
-import { Navigate, useNavigate, useParams } from 'react-router-dom'
+import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { analyze } from '../analysis/metrics'
 import type { Analysis, PoseTrack } from '../analysis/types'
 import AdviceList from '../components/AdviceList'
 import MetaFields from '../components/MetaFields'
 import MetricGrid from '../components/MetricGrid'
+import MoveList from '../components/MoveList'
 import Timeline from '../components/Timeline'
 import VideoOverlay, { type VideoOverlayHandle } from '../components/VideoOverlay'
 import { db, deleteSession, previousSession, saveSession, type SessionMeta } from '../db/db'
@@ -45,11 +46,22 @@ function ResultView({ meta, createdAt, track, analysis, videoUrl, children }: Vi
         <h2 className="mb-2 font-semibold">改善ポイント</h2>
         <AdviceList advice={advice} onJump={seek} />
       </div>
+      {analysis.moves.length > 0 && (
+        <div>
+          <h2 className="mb-2 font-semibold">ムーブごとの振り返り</h2>
+          <MoveList analysis={analysis} onSeek={seek} />
+        </div>
+      )}
       <div>
         <h2 className="mb-2 font-semibold">
           指標 {previous && <span className="text-xs font-normal text-slate-400">（前回 {formatDate(previous.createdAt)} と比較）</span>}
         </h2>
         <MetricGrid metrics={metrics} previous={previous?.metrics} />
+        {previous && (
+          <Link to={`/problem/${encodeURIComponent(meta.problemName)}`} className="mt-2 block text-sm text-accent">
+            この課題のトライをすべて比較 →
+          </Link>
+        )}
       </div>
       {children}
     </section>

@@ -44,7 +44,13 @@ test('import a backup, review growth and timeline, export and delete', async ({ 
   await page.getByRole('link', { name: '履歴' }).click()
   await page.getByTestId('session-list').getByRole('link').first().click()
   await expect(page.getByText('前回')).not.toHaveCount(0)
+  await expect(page.getByText('一番苦戦')).toBeVisible()
   await page.screenshot({ path: info.outputPath('session.png'), fullPage: true })
+  await page.getByRole('link', { name: /この課題のトライをすべて比較/ }).click()
+  await expect(page.getByRole('heading', { name: '合成課題' })).toBeVisible()
+  await expect(page.getByText('2 回のトライ ・ 完登 1 回')).toBeVisible()
+  await expect(page.getByRole('row', { name: /ストレートアーム/ })).toContainText('0%')
+  await page.screenshot({ path: info.outputPath('problem.png') })
 
   await page.getByRole('link', { name: '設定' }).click()
   const download = page.waitForEvent('download')

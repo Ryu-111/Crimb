@@ -31,24 +31,24 @@ export default function NewSession() {
       <h1 className="text-xl font-bold">動画を解析</h1>
 
       <div className="grid grid-cols-2 gap-2">
-        <label className="cursor-pointer rounded-xl bg-slate-800 p-4 text-center">
+        <label className="cursor-pointer rounded-xl bg-slate-800 p-4 text-center focus-within:ring-2 focus-within:ring-accent">
           <div className="text-2xl">📹</div>
           <div className="text-sm">撮影する</div>
           <input
             type="file"
             accept="video/*"
             capture="environment"
-            className="hidden"
+            className="sr-only"
             onChange={(e) => setFile(e.target.files?.[0] ?? null)}
           />
         </label>
-        <label className="cursor-pointer rounded-xl bg-slate-800 p-4 text-center">
+        <label className="cursor-pointer rounded-xl bg-slate-800 p-4 text-center focus-within:ring-2 focus-within:ring-accent">
           <div className="text-2xl">🗂️</div>
           <div className="text-sm">動画を選ぶ</div>
           <input
             type="file"
             accept="video/*"
-            className="hidden"
+            className="sr-only"
             data-testid="video-input"
             onChange={(e) => setFile(e.target.files?.[0] ?? null)}
           />
@@ -75,7 +75,7 @@ export default function NewSession() {
       >
         解析スタート
       </button>
-      <p className="text-center text-xs text-slate-500">動画は端末の中だけで解析され、外部には送信されません</p>
+      <p className="text-center text-xs text-slate-400">動画は端末の中だけで解析され、外部には送信されません</p>
     </section>
   )
 }

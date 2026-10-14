@@ -64,7 +64,7 @@ export default function Home() {
                   {s.grade} {s.wallAngle} ・ {formatDate(s.createdAt)}
                 </div>
               </div>
-              <span className={`text-xs font-bold ${s.sent ? 'text-lime-400' : 'text-slate-500'}`}>
+              <span className={`text-xs font-bold ${s.sent ? 'text-lime-400' : 'text-slate-400'}`}>
                 {s.sent ? '完登' : 'トライ'}
               </span>
             </Link>

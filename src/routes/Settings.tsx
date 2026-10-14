@@ -5,7 +5,8 @@ import { deleteAll, exportBackup, importBackup, isBackup, MAX_BACKUP_BYTES } fro
 const mb = (bytes = 0) => `${(bytes / 1024 / 1024).toFixed(1)} MB`
 
 export default function Settings() {
-  const [message, setMessage] = useState<string>()
+  const [message, setMessageState] = useState<{ text: string; error: boolean }>()
+  const setMessage = (text: string, error = false) => setMessageState({ text, error })
   const [usage, setUsage] = useState<StorageEstimate>()
   useEffect(() => {
     navigator.storage?.estimate().then(setUsage, () => {})
@@ -21,13 +22,13 @@ export default function Settings() {
         await navigator.share({ files: [file] })
         setMessage(`${backup.sessions.length} 件を書き出しました`)
       } catch (e) {
-        if ((e as Error).name !== 'AbortError') setMessage(`書き出しに失敗しました: ${(e as Error).message}`)
+        if ((e as Error).name !== 'AbortError') setMessage(`書き出しに失敗しました: ${(e as Error).message}`, true)
       }
       return
     }
     // shortcut: Android アプリ（WebView）は <a download> を保存できない。@capacitor/filesystem 等を入れるまでは案内だけ出す
     if (Capacitor.isNativePlatform()) {
-      setMessage('アプリ版ではまだ書き出しに対応していません')
+      setMessage('アプリ版ではまだ書き出しに対応していません', true)
       return
     }
     const a = document.createElement('a')
@@ -48,7 +49,7 @@ export default function Settings() {
       const added = await importBackup(data)
       setMessage(`${added} 件を読み込みました（重複 ${data.sessions.length - added} 件はスキップ）`)
     } catch (e) {
-      setMessage(`読み込みに失敗しました: ${(e as Error).message}`)
+      setMessage(`読み込みに失敗しました: ${(e as Error).message}`, true)
     }
   }
 
@@ -76,12 +77,12 @@ export default function Settings() {
         <button className="w-full rounded-lg bg-slate-800 p-3" onClick={download}>
           ⬇️ 書き出す（JSON・動画は含みません）
         </button>
-        <label className="block w-full cursor-pointer rounded-lg bg-slate-800 p-3 text-center">
+        <label className="block w-full cursor-pointer rounded-lg bg-slate-800 p-3 text-center focus-within:ring-2 focus-within:ring-accent">
           ⬆️ 読み込む
           <input
             type="file"
             accept="application/json,.json"
-            className="hidden"
+            className="sr-only"
             data-testid="import-input"
             onChange={(e) => {
               upload(e.target.files?.[0])
@@ -90,8 +91,8 @@ export default function Settings() {
           />
         </label>
         {message && (
-          <p role="status" className="text-sm text-lime-400">
-            {message}
+          <p role={message.error ? 'alert' : 'status'} className={`text-sm ${message.error ? 'text-rose-400' : 'text-lime-400'}`}>
+            {message.text}
           </p>
         )}
       </div>
@@ -99,7 +100,7 @@ export default function Settings() {
       <button className="w-full rounded-lg border border-rose-500/50 p-3 text-sm text-rose-400" onClick={clear}>
         すべての記録を削除
       </button>
-      <p className="text-center text-xs text-slate-500">Crimb v{__APP_VERSION__}</p>
+      <p className="text-center text-xs text-slate-400">Crimb v{__APP_VERSION__}</p>
     </section>
   )
 }

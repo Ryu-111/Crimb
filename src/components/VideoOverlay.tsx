@@ -123,7 +123,7 @@ const VideoOverlay = forwardRef<VideoOverlayHandle, { src?: string; track: PoseT
       {src ? (
         <video ref={videoRef} src={src} controls playsInline muted className="absolute inset-0 h-full w-full" />
       ) : (
-        <div className="absolute inset-0 grid place-items-center text-sm text-slate-500">動画は保存されていません</div>
+        <div className="absolute inset-0 grid place-items-center text-sm text-slate-400">動画は保存されていません</div>
       )}
       <canvas ref={canvasRef} className="pointer-events-none absolute inset-0 h-full w-full" />
     </div>

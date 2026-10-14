@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
 import { analyze } from '../analysis/metrics'
-import { captureThumbnail, extractPoseTrack, loadVideo } from '../pose/extractFrames'
+import { MAX_DURATION_SEC, captureThumbnail, extractPoseTrack, loadVideo } from '../pose/extractFrames'
 import { useDraft } from '../lib/draft'
 
 export default function Analyze() {
@@ -10,6 +10,12 @@ export default function Analyze() {
   const [progress, setProgress] = useState(0)
   const [stage, setStage] = useState('モデルを準備中…')
   const [error, setError] = useState<string>()
+  const [truncated, setTruncated] = useState(false)
+  const backRef = useRef<HTMLButtonElement>(null)
+
+  useEffect(() => {
+    if (error) backRef.current?.focus()
+  }, [error])
 
   useEffect(() => {
     if (!draft) return
@@ -25,6 +31,7 @@ export default function Analyze() {
       try {
         setStage('動画を読み込み中…')
         const video = await loadVideo(draft.url)
+        setTruncated(video.duration > MAX_DURATION_SEC)
         setStage('姿勢を推定中…')
         const track = await extractPoseTrack(video, { onProgress: setProgress, signal: ctrl.signal })
         setStage('ムーブを解析中…')
@@ -53,20 +60,30 @@ export default function Analyze() {
     <section className="flex min-h-[60vh] flex-col items-center justify-center gap-4 text-center">
       {error ? (
         <>
-          <p className="text-rose-400">解析に失敗しました: {error}</p>
-          <button className="rounded-lg bg-slate-800 px-4 py-2" onClick={() => navigate('/new')}>
+          <p role="alert" className="text-rose-400">解析に失敗しました: {error}</p>
+          <button ref={backRef} className="rounded-lg bg-slate-800 px-4 py-2" onClick={() => navigate('/new')}>
             戻る
           </button>
         </>
       ) : (
         <>
           <div className="text-4xl">🧗</div>
-          <p>{stage}</p>
-          <div className="h-3 w-full overflow-hidden rounded-full bg-slate-800">
+          <p aria-live="polite">{stage}</p>
+          {truncated && (
+            <p className="text-sm text-amber-400">動画が{MAX_DURATION_SEC / 60}分を超えているため、最初の{MAX_DURATION_SEC / 60}分だけを解析します</p>
+          )}
+          <div
+            className="h-3 w-full overflow-hidden rounded-full bg-slate-800"
+            role="progressbar"
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={Math.round(progress * 100)}
+            aria-label={stage}
+          >
             <div className="h-full bg-accent transition-all" style={{ width: `${Math.round(progress * 100)}%` }} />
           </div>
           <p className="text-sm text-slate-400">{Math.round(progress * 100)}%</p>
-          <button className="text-sm text-slate-400 underline" onClick={() => navigate('/new')}>
+          <button className="inline-flex min-h-11 items-center px-2 text-sm text-slate-400 underline" onClick={() => navigate('/new')}>
             中止
           </button>
         </>

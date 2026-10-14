@@ -139,7 +139,7 @@ export function DraftResult() {
             {saveError}
           </p>
         )}
-        <button className="w-full text-sm text-slate-400" onClick={() => navigate('/new')}>
+        <button className="min-h-11 w-full py-2 text-sm text-slate-400" onClick={() => navigate('/new')}>
           保存せずに戻る
         </button>
       </div>

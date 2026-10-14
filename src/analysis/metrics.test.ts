@@ -35,6 +35,18 @@ describe('analyze', () => {
     expect(advice[0]!.t).toBe(metrics.fallAt)
   })
 
+  it('detects an early fall even when the clip keeps running on the mat', () => {
+    const track = climb({ moves: 3, fall: true })
+    const last = track.frames[track.frames.length - 1]!
+    const dt = 1 / track.fps
+    const n = 4 * track.frames.length
+    for (let i = 1; i <= n; i++) track.frames.push({ ...last, t: last.t + i * dt })
+    const { metrics, advice } = analyze(track)
+    expect(metrics.fallAt).not.toBeNull()
+    expect(metrics.fallAt!).toBeLessThan(track.frames[track.frames.length - 1]!.t / 3)
+    expect(advice[0]!.id).toBe('fall')
+  })
+
   it('does not report the drop after a completed send as a fall', () => {
     const fell = analyze(climb({ fall: true }))
     const { metrics, advice } = analyze(climb({ fall: true }), undefined, true)

@@ -1,3 +1,4 @@
+import { MIN_VISIBILITY } from '../analysis/geometry'
 import type { Frame, Landmark } from '../analysis/types'
 
 /** この秒数以下の検出抜けは前後から線形補間する */
@@ -30,7 +31,7 @@ export function fillGaps(frames: Frame[], maxGapSec = MAX_GAP_SEC): Frame[] {
   return out
 }
 
-/** 中心移動平均でジッターを除去（検出のあるフレームのみを平均） */
+/** 中心移動平均でジッターを除去（検出があり、その点が見えている近傍のみを平均） */
 export function smooth(frames: Frame[], window = 5): Frame[] {
   const half = Math.floor(window / 2)
   return frames.map((f, i) => {
@@ -43,11 +44,15 @@ export function smooth(frames: Frame[], window = 5): Frame[] {
     const lm = f.lm.map((p, j) => {
       let x = 0
       let y = 0
+      let count = 0
       for (const n of neighbors) {
-        x += n[j]!.x
-        y += n[j]!.y
+        const q = n[j]!
+        if (q.v < MIN_VISIBILITY) continue
+        x += q.x
+        y += q.y
+        count++
       }
-      return { x: x / neighbors.length, y: y / neighbors.length, v: p.v }
+      return count ? { x: x / count, y: y / count, v: p.v } : p
     })
     return { t: f.t, lm }
   })

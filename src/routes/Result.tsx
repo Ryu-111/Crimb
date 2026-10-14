@@ -73,34 +73,40 @@ export function DraftResult() {
   const { draft } = useDraft()
   const navigate = useNavigate()
   const [keepVideo, setKeepVideo] = useState(false)
-  const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState<string>()
+  const [saving, setSaving] = useState(false)
   if (!draft?.track || !draft.analysis || !draft.createdAt) return <Navigate to="/new" replace />
   const { track, analysis, createdAt } = draft
 
   const save = async () => {
     setSaving(true)
     setSaveError(undefined)
-    let id: number
-    try {
-      id = await saveSession(
+    const store = (video?: Blob) =>
+      saveSession(
         {
           ...draft.meta,
           createdAt,
           metrics: analysis.metrics,
           advice: analysis.advice,
           thumbnail: draft.thumbnail,
-          hasVideo: keepVideo,
+          hasVideo: !!video,
         },
         track,
-        keepVideo ? draft.file : undefined,
+        video,
       )
+    let id: number
+    try {
+      try {
+        id = await store(keepVideo ? draft.file : undefined)
+      } catch (e) {
+        // 大きい動画は容量不足などで保存できないことがある。記録だけでも残す
+        if (!keepVideo) throw e
+        id = await store()
+        alert('動画は容量不足などで保存できなかったため、記録のみ保存しました')
+      }
     } catch (e) {
+      setSaveError(`保存できませんでした: ${(e as Error).message}`)
       setSaving(false)
-      setSaveError(
-        `保存に失敗しました: ${(e as Error).message}` +
-          (keepVideo ? '。容量不足の可能性があります。「動画も端末に保存する」を外して再度お試しください。' : ''),
-      )
       return
     }
     // draft はここでは消さない（React Router の遷移は transition 扱いのため、先に draft が消えて

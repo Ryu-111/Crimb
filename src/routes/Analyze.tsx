@@ -23,6 +23,7 @@ export default function Analyze() {
     )
     ;(async () => {
       try {
+        setStage('動画を読み込み中…')
         const video = await loadVideo(draft.url)
         setStage('姿勢を推定中…')
         const track = await extractPoseTrack(video, { onProgress: setProgress, signal: ctrl.signal })

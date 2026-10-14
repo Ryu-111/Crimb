@@ -15,18 +15,26 @@ export interface ExtractOptions {
   signal?: AbortSignal
 }
 
+/** イベントが来ないまま止まる端末があるため、待ち時間の上限 (ms) */
+const LOAD_TIMEOUT_MS = 15_000
+const SEEK_TIMEOUT_MS = 5_000
+
 function seek(video: HTMLVideoElement, t: number): Promise<void> {
   return new Promise((resolve, reject) => {
-    const done = () => {
+    const cleanup = () => {
+      clearTimeout(timer)
       video.removeEventListener('seeked', done)
       video.removeEventListener('error', fail)
+    }
+    const done = () => {
+      cleanup()
       resolve()
     }
     const fail = () => {
-      video.removeEventListener('seeked', done)
-      video.removeEventListener('error', fail)
+      cleanup()
       reject(new Error('動画の読み込みに失敗しました'))
     }
+    const timer = setTimeout(fail, SEEK_TIMEOUT_MS)
     video.addEventListener('seeked', done)
     video.addEventListener('error', fail)
     video.currentTime = t
@@ -36,12 +44,25 @@ function seek(video: HTMLVideoElement, t: number): Promise<void> {
 export function loadVideo(src: string): Promise<HTMLVideoElement> {
   return new Promise((resolve, reject) => {
     const video = document.createElement('video')
+    const fail = () => {
+      clearTimeout(timer)
+      reject(new Error('この動画形式は再生できません'))
+    }
+    const timer = setTimeout(fail, LOAD_TIMEOUT_MS)
     video.muted = true
     video.playsInline = true
     video.preload = 'auto'
     video.src = src
-    video.addEventListener('loadeddata', () => resolve(video), { once: true })
-    video.addEventListener('error', () => reject(new Error('この動画形式は再生できません')), { once: true })
+    // iOS は preload を無視して loadeddata まで進まないことがある。duration が分かれば十分（フレームは seek でデコードされる）
+    video.addEventListener(
+      'loadedmetadata',
+      () => {
+        clearTimeout(timer)
+        resolve(video)
+      },
+      { once: true },
+    )
+    video.addEventListener('error', fail, { once: true })
     video.load()
   })
 }

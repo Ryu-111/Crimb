@@ -8,7 +8,9 @@ const local = (path: string) => new URL(path, document.baseURI).href
 
 async function reachable(url: string): Promise<boolean> {
   try {
-    const res = await fetch(url, { method: 'HEAD' })
+    // HEAD は Service Worker のプリキャッシュ（GET のみ）を通らずオフラインで失敗するため GET で確認し、本文は読まない
+    const res = await fetch(url)
+    void res.body?.cancel().catch(() => {})
     return res.ok
   } catch {
     return false

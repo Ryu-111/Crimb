@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Capacitor } from '@capacitor/core'
-import { deleteAll, exportBackup, importBackup, isBackup } from '../db/backup'
+import { deleteAll, exportBackup, importBackup, isBackup, MAX_BACKUP_BYTES } from '../db/backup'
 
 const mb = (bytes = 0) => `${(bytes / 1024 / 1024).toFixed(1)} MB`
 
@@ -42,6 +42,7 @@ export default function Settings() {
   const upload = async (file?: File) => {
     if (!file) return
     try {
+      if (file.size > MAX_BACKUP_BYTES) throw new Error('ファイルが大きすぎます')
       const data: unknown = JSON.parse(await file.text())
       if (!isBackup(data)) throw new Error('Crimb のバックアップファイルではありません')
       const added = await importBackup(data)

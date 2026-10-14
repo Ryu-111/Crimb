@@ -38,25 +38,59 @@ export async function exportBackup(): Promise<Backup> {
   }
 }
 
+/** 読み込むバックアップファイルの上限（動画は含まないのでこれで十分） */
+export const MAX_BACKUP_BYTES = 50 * 1024 * 1024
+
+const isObj = (x: unknown): x is Record<string, unknown> => typeof x === 'object' && x !== null && !Array.isArray(x)
+const isNum = (x: unknown): x is number => typeof x === 'number' && Number.isFinite(x)
+
+// NaN の指標は JSON で null になるので null も許す
+const isMetrics = (m: unknown) => isObj(m) && Object.values(m).every((v) => v === null || isNum(v))
+
+const isAdvice = (a: unknown) =>
+  isObj(a) &&
+  ['id', 'title', 'detail'].every((k) => typeof a[k] === 'string') &&
+  ['high', 'medium', 'low', 'good'].includes(a.severity as string) &&
+  (a.t === undefined || isNum(a.t))
+
+const isFrame = (f: unknown) =>
+  isObj(f) && isNum(f.t) && (f.lm === null || (Array.isArray(f.lm) && f.lm.every((l) => isObj(l) && isNum(l.x) && isNum(l.y))))
+
 /** 外部ファイルなので形を確認してから読み込む */
 export function isBackup(x: unknown): x is Backup {
-  const b = x as Backup
   return (
-    !!b &&
-    b.format === BACKUP_FORMAT &&
-    b.version === 1 &&
-    Array.isArray(b.sessions) &&
-    b.sessions.every(
-      (e) =>
-        e &&
-        typeof e.session?.createdAt === 'number' &&
+    isObj(x) &&
+    x.format === BACKUP_FORMAT &&
+    x.version === 1 &&
+    Array.isArray(x.sessions) &&
+    x.sessions.every(
+      (e: unknown) =>
+        isObj(e) &&
+        isObj(e.session) &&
+        isNum(e.session.createdAt) &&
         typeof e.session.problemName === 'string' &&
-        e.session.metrics !== null &&
-        typeof e.session.metrics === 'object' &&
+        isMetrics(e.session.metrics) &&
         Array.isArray(e.session.advice) &&
-        (e.track === null || Array.isArray(e.track?.frames)),
+        e.session.advice.every(isAdvice) &&
+        (e.track === null || (isObj(e.track) && Array.isArray(e.track.frames) && e.track.frames.every(isFrame))),
     )
   )
+}
+
+/** 許可したフィールドだけで記録を組み立て直す（余計なキーや型違いを DB に入れない） */
+export function toSessionRecord(s: BackupSession): Omit<SessionRecord, 'thumbnail'> {
+  const str = (v: unknown) => (v == null ? '' : String(v))
+  return {
+    createdAt: s.createdAt,
+    problemName: s.problemName,
+    grade: str(s.grade),
+    wallAngle: str(s.wallAngle),
+    notes: str(s.notes),
+    sent: !!s.sent,
+    hasVideo: false,
+    metrics: s.metrics,
+    advice: s.advice.map(({ id, severity, title, detail, t }) => (t === undefined ? { id, severity, title, detail } : { id, severity, title, detail, t })),
+  }
 }
 
 /** 同じ記録（作成日時と課題名が一致）はスキップ。追加した件数を返す */
@@ -65,10 +99,11 @@ export async function importBackup(backup: Backup): Promise<number> {
   let added = 0
   for (const { session, track } of backup.sessions) {
     if (existing.has(`${session.createdAt}|${session.problemName}`)) continue
-    const { id: _id, thumbnail, ...rest } = session
-    const thumb = thumbnail?.startsWith('data:image/') ? await (await fetch(thumbnail)).blob() : undefined
+    const { thumbnail } = session
+    const thumb =
+      typeof thumbnail === 'string' && thumbnail.startsWith('data:image/') ? await (await fetch(thumbnail)).blob() : undefined
     await db.transaction('rw', db.sessions, db.tracks, async () => {
-      const id = (await db.sessions.add({ ...rest, thumbnail: thumb })) as number
+      const id = (await db.sessions.add({ ...toSessionRecord(session), thumbnail: thumb })) as number
       if (track) await db.tracks.put({ sessionId: id, track })
     })
     existing.add(`${session.createdAt}|${session.problemName}`)

@@ -93,16 +93,22 @@ function detect(landmarker: Awaited<ReturnType<typeof getLandmarker>>, video: HT
   return lm ? lm.map((p) => ({ x: round(p.x), y: round(p.y), v: round(p.visibility ?? 1) })) : null
 }
 
-/** 冒頭 1.5 秒 (6 フレーム) を推定し、全身が映っているかを返す */
+/** 動画全体から 6 フレームを推定し、全身が画面に収まっているかを返す */
 export async function checkFullBody(video: HTMLVideoElement): Promise<boolean> {
   const landmarker = await getLandmarker()
-  const end = Math.min(video.duration || 0, 1.5)
+  // 冒頭は壁に歩いて近づく場面が多く体が画面に入りきらないので、動画全体（10%〜90%）から 6 フレームを見る
+  const d = Math.min(video.duration || 0, MAX_DURATION_SEC)
   const frames: Frame[] = []
   for (let i = 0; i < 6; i++) {
-    const t = (end * i) / 5
-    await seek(video, t)
-    clock += 1000 / SAMPLE_FPS
-    frames.push({ t, lm: detect(landmarker, video) })
+    const t = d * (0.1 + (0.8 * i) / 5)
+    // VIDEO モードは直前フレームの位置を手がかりに追跡するので、数秒飛ばすと外れる。直前の 2 フレームで追い付かせてから判定
+    let lm: Frame['lm'] = null
+    for (const dt of [2, 1, 0]) {
+      await seek(video, Math.max(0, t - dt / SAMPLE_FPS))
+      clock += 1000 / SAMPLE_FPS
+      lm = detect(landmarker, video)
+    }
+    frames.push({ t, lm })
   }
   return fullBodyVisible(frames)
 }

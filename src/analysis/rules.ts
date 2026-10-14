@@ -4,6 +4,8 @@ import type { Advice, LimbMove, Metrics, PoseTrack, Segment, Severity } from './
 /** 改善案の判定しきい値。調整はここだけで行う。 */
 export const THRESHOLDS = {
   minDetectionRate: 0.6,
+  /** ストレートアームを判定するのに必要な肘角度のサンプル数（片腕 1 秒ぶん） */
+  minElbowSamples: 15,
   stillRatioHigh: 0.65,
   longestStillSec: 8,
   straightArmLow: 0.35,
@@ -100,8 +102,8 @@ export function buildAdvice(m: Metrics, ctx: AdviceContext): Advice[] {
     })
   }
 
-  if (ctx.elbowSamples === 0) {
-    // 静止中に腕が測れなかった（静止なし・腕が隠れていた等）ので判定しない
+  if (ctx.elbowSamples < T.minElbowSamples) {
+    // 静止中に腕がほとんど測れなかった（静止なし・背面撮影で腕が隠れていた等）ので判定しない
   } else if (m.straightArmRatio < T.straightArmLow) {
     out.push({
       id: 'straight-arm',

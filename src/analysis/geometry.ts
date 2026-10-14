@@ -69,6 +69,11 @@ export class Pose {
     return toPlane(this.lm[i]!, this.aspect)
   }
 
+  /** visibility (0..1) */
+  vis(i: number): number {
+    return this.lm[i]?.v ?? 0
+  }
+
   visible(...idx: number[]): boolean {
     return idx.every((i) => (this.lm[i]?.v ?? 0) >= MIN_VISIBILITY)
   }
@@ -109,19 +114,23 @@ export function torsoLength(track: PoseTrack): number {
   return median(values) || 0.25
 }
 
-const FULL_BODY = [
-  LM.leftShoulder,
-  LM.rightShoulder,
-  LM.leftHip,
-  LM.rightHip,
-  LM.leftWrist,
-  LM.rightWrist,
-  LM.leftAnkle,
-  LM.rightAnkle,
-]
+const CORE = [LM.leftShoulder, LM.rightShoulder, LM.leftHip, LM.rightHip]
 
-/** 肩・腰・手首・足首がすべて見えているフレームが半数以上なら true（解析前の撮影チェック） */
+/** 背面から撮ると手首は体や壁に隠れて visibility が低く出るので、手は片方・低めの基準で見る */
+const WRIST_VISIBILITY = 0.3
+
+/** 体幹・片足首以上・片手首以上が見えているか（画面外に切れていないか）。実際の登攀動画で調整 */
+export function bodyInFrame(lm: Landmark[]): boolean {
+  const v = (i: number) => lm[i]?.v ?? 0
+  return (
+    CORE.every((i) => v(i) >= MIN_VISIBILITY) &&
+    Math.max(v(LM.leftAnkle), v(LM.rightAnkle)) >= MIN_VISIBILITY &&
+    Math.max(v(LM.leftWrist), v(LM.rightWrist)) >= WRIST_VISIBILITY
+  )
+}
+
+/** 全身が画面に収まっているフレームが半数以上なら true（解析前の撮影チェック） */
 export function fullBodyVisible(frames: Frame[]): boolean {
-  const ok = frames.filter((f) => f.lm && FULL_BODY.every((i) => (f.lm?.[i]?.v ?? 0) >= MIN_VISIBILITY)).length
+  const ok = frames.filter((f) => f.lm && bodyInFrame(f.lm)).length
   return frames.length > 0 && ok * 2 >= frames.length
 }

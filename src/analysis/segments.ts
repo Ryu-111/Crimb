@@ -8,6 +8,11 @@ export const MIN_STILL_SEC = 0.4
 /** 手足が「動いた」とみなす速さ (胴長/秒) と移動量 (胴長) */
 export const LIMB_SPEED = 1.0
 export const LIMB_MIN_DISPLACEMENT = 0.3
+/** 手足が「置かれている」とみなす速さ (胴長/秒) と最短時間 (秒) */
+export const LIMB_STILL_SPEED = 0.5
+export const LIMB_MIN_HOLD_SEC = 0.3
+/** 手足はこの visibility から使う。背面撮影では手首が体や壁に隠れて低めに出るため、体幹（0.5）より緩くする */
+export const LIMB_VISIBILITY = 0.3
 
 /** 各フレームの点の速さ (単位/秒)。点が無いフレームは NaN。 */
 export function speeds(points: (Vec | null)[], times: number[]): number[] {
@@ -73,7 +78,11 @@ const LIMB_INDEX: Record<Limb, number> = {
   rightFoot: LM.rightAnkle,
 }
 
-/** 手足それぞれの移動イベント（ホールド/スタンスの持ち替え・置き換え） */
+/**
+ * 手足それぞれの移動イベント（ホールド/スタンスの持ち替え・置き換え）。
+ * 手足が止まっていた位置（≥ LIMB_MIN_HOLD_SEC）から次に止まった位置へ LIMB_MIN_DISPLACEMENT 以上動いたら 1 回。
+ * 検出のブレや手持ちカメラの揺れは「2 か所に止まる」形にならないので数えない。
+ */
 export function detectLimbMoves(track: PoseTrack, torso: number): LimbMove[] {
   const times = track.frames.map((f) => f.t)
   const out: LimbMove[] = []
@@ -81,17 +90,23 @@ export function detectLimbMoves(track: PoseTrack, torso: number): LimbMove[] {
     const idx = LIMB_INDEX[limb]
     const pts = track.frames.map((f) => {
       const p = poseAt(f, track)
-      return p && p.visible(idx) ? p.get(idx) : null
+      return p && p.vis(idx) >= LIMB_VISIBILITY ? p.get(idx) : null
     })
     const sp = speeds(pts, times).map((s) => s / torso)
-    for (const [i0, i1] of runIndices(sp.map((s) => !Number.isNaN(s) && s > LIMB_SPEED))) {
-      // 動き出す直前と止まった直後の位置で移動量を測る
-      const a0 = Math.max(0, i0 - 1)
-      const b0 = Math.min(pts.length - 1, i1 + 1)
-      const a = pts[a0] ?? pts[i0]
-      const b = pts[b0] ?? pts[i1]
-      if (a && b && Math.hypot(b.x - a.x, b.y - a.y) / torso >= LIMB_MIN_DISPLACEMENT) {
-        out.push({ start: times[i0]!, end: times[i1]!, limb })
+    const holds = runIndices(sp.map((s) => !Number.isNaN(s) && s < LIMB_STILL_SPEED)).filter(
+      ([a, b]) => times[b]! - times[a]! >= LIMB_MIN_HOLD_SEC,
+    )
+    const center = ([a, b]: [number, number]) => {
+      const ps = pts.slice(a, b + 1).filter((p) => p !== null)
+      return { x: ps.reduce((s, p) => s + p.x, 0) / ps.length, y: ps.reduce((s, p) => s + p.y, 0) / ps.length }
+    }
+    for (let i = 1; i < holds.length; i++) {
+      const prev = holds[i - 1]!
+      const next = holds[i]!
+      const a = center(prev)
+      const b = center(next)
+      if (Math.hypot(b.x - a.x, b.y - a.y) / torso >= LIMB_MIN_DISPLACEMENT) {
+        out.push({ start: times[prev[1]]!, end: times[next[0]]!, limb })
       }
     }
   }

@@ -9,6 +9,8 @@ import { fileURLToPath } from 'node:url'
 import { join } from 'node:path'
 
 interface Expected {
+  /** 解析前の全身チェックで警告が出るべきか */
+  bodyWarning?: boolean
   metrics?: Record<string, [number, number]>
   adviceIncludes?: string[]
   adviceExcludes?: string[]
@@ -59,6 +61,7 @@ test.describe('@pose regression', () => {
       const expPath = join(dir, file.replace(/\.[^.]+$/, '.expected.json'))
       if (!existsSync(expPath)) return
       const exp = JSON.parse(readFileSync(expPath, 'utf8')) as Expected
+      if (exp.bodyWarning !== undefined) expect.soft(bodyWarning, 'bodyWarning').toBe(exp.bodyWarning)
       for (const [key, [min, max]] of Object.entries(exp.metrics ?? {})) {
         const v = result.metrics[key]
         expect.soft(v, `${key}`).not.toBeNull()

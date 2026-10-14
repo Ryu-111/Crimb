@@ -31,7 +31,8 @@ export interface VideoRecord {
   blob: Blob
 }
 
-export const db = new Dexie('crimb') as Dexie & {
+// PR プレビューは本番と同じ github.io オリジンなので、別名の DB を使って本番データに触れない
+export const db = new Dexie(import.meta.env.VITE_DB_NAME || 'crimb') as Dexie & {
   sessions: EntityTable<SessionRecord, 'id'>
   tracks: EntityTable<TrackRecord, 'sessionId'>
   videos: EntityTable<VideoRecord, 'sessionId'>

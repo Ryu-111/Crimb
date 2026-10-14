@@ -34,7 +34,10 @@ jobs:
           key: mediapipe-model-v1
       - run: npm run build
         if: github.event.action != 'closed'
-      - uses: rossjrw/pr-preview-action@v1
+        # プレビューは本番と同じオリジンなので、IndexedDB を分けて本番の記録・動画に触れない
+        env:
+          VITE_DB_NAME: crimb-preview-${{ github.event.pull_request.number }}
+      - uses: rossjrw/pr-preview-action@ffa7509e91a3ec8dfc2e5536c4d5c1acdf7a6de9 # v1.8.1
         with:
           source-dir: dist
           preview-branch: gh-pages

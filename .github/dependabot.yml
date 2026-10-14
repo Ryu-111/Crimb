@@ -15,3 +15,7 @@ updates:
     directory: /android
     schedule:
       interval: monthly
+    ignore:
+      # Gradle 9.6+ は Capacitor が使う Android Gradle Plugin 8.x と非互換（PR #6）。Capacitor の対応後に外す
+      - dependency-name: gradle-wrapper
+        update-types: [version-update:semver-major]

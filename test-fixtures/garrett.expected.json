@@ -1,7 +1,7 @@
 {
   "bodyWarning": false,
   "metrics": {
-    "detectionRate": [0.9, 1],
+    "detectionRate": [0.6, 1],
     "handMoves": [2, 12],
     "footMoves": [2, 12]
   },

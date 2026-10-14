@@ -1,4 +1,4 @@
-import { angle, dist, LM, mean, mid, poseAt, torsoLength, type Pose } from './geometry'
+import { angle, dist, dropImplausiblePoses, LM, mean, mid, poseAt, torsoLength, type Pose } from './geometry'
 import { comPoints, detectLimbMoves, detectStillsAndMoves } from './segments'
 import type { Analysis, Frame, Metrics, PoseTrack, Segment } from './types'
 import { buildAdvice } from './rules'
@@ -8,6 +8,8 @@ export const STRAIGHT_ARM_DEG = 150
 /** 落下判定: この時間 (秒) 以内に重心がこの距離 (胴長) 以上下がる */
 export const FALL_WINDOW_SEC = 1.0
 export const FALL_DROP = 1.5
+/** 1 フレームでこれ以上（胴長）重心が動いたら検出の飛び（瞬間移動）とみなす。自由落下でも 15 fps なら 0.5 程度 */
+export const MAX_COM_STEP = 0.8
 
 function inSegments(t: number, segs: Segment[]): boolean {
   return segs.some((s) => t >= s.start && t <= s.end)
@@ -45,9 +47,14 @@ export function detectFall(track: PoseTrack, torso: number): number | null {
     if (!a || !start) continue
     if (!started && (start.y - a.y) / torso >= 1) started = true
     if (!started) continue
+    // 画面の上端に体が掛かっている場面からの「落下」は、上半身が画面外に出た検出の乱れであることが多い
+    if (a.y - torso < 0.05) continue
     for (let j = i + 1; j < frames.length && frames[j]!.t - frames[i]!.t <= FALL_WINDOW_SEC; j++) {
       const b = com[j]
-      if (b && (b.y - a.y) / torso >= FALL_DROP) return frames[i]!.t
+      const prev = com[j - 1]
+      // 途中で検出が途切れたり瞬間移動したりする区間は落下とみなさない
+      if (!b || !prev || dist(prev, b) / torso > MAX_COM_STEP) break
+      if ((b.y - a.y) / torso >= FALL_DROP) return frames[i]!.t
     }
   }
   return null
@@ -58,7 +65,8 @@ function climbFrames(track: PoseTrack, fallAt: number | null): Frame[] {
 }
 
 /** sent: 完登した記録なら、最後の飛び降りを落下として改善案に出さない（以降のフレームは除外する） */
-export function analyze(track: PoseTrack, wallAngle?: string, sent?: boolean): Analysis {
+export function analyze(raw: PoseTrack, wallAngle?: string, sent?: boolean): Analysis {
+  const track = dropImplausiblePoses(raw)
   const torso = torsoLength(track)
   const frames = track.frames
   const durationSec = frames.length ? frames[frames.length - 1]!.t - frames[0]!.t : 0

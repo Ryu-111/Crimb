@@ -19,7 +19,7 @@ export default function AdviceList({ advice, onJump }: { advice: Advice[]; onJum
           </div>
           <p className="mt-1 text-sm text-slate-300">{a.detail}</p>
           {a.t !== undefined && onJump && (
-            <button className="mt-2 text-sm text-accent" onClick={() => onJump(a.t!)}>
+            <button className="-mx-2 mt-1 inline-flex min-h-11 items-center px-2 text-sm text-accent" onClick={() => onJump(a.t!)}>
               ▶ {a.t.toFixed(1)}秒の場面を見る
             </button>
           )}

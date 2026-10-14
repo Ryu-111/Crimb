@@ -6,6 +6,7 @@ import NewSession from './routes/NewSession'
 import { DraftResult, SavedResult } from './routes/Result'
 import Growth from './routes/Growth'
 import Settings from './routes/Settings'
+import Problem from './routes/Problem'
 
 // 姿勢推定ライブラリは解析画面でだけ読み込む
 const Analyze = lazy(() => import('./routes/Analyze'))
@@ -36,6 +37,7 @@ export default function App() {
               />
               <Route path="/result" element={<DraftResult />} />
               <Route path="/session/:id" element={<SavedResult />} />
+              <Route path="/problem/:name" element={<Problem />} />
               <Route path="/growth" element={<Growth />} />
               <Route path="/settings" element={<Settings />} />
             </Routes>

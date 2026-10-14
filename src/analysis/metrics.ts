@@ -37,11 +37,14 @@ function isShaking(p: Pose, torso: number): boolean {
 export function detectFall(track: PoseTrack, torso: number): number | null {
   const com = comPoints(track)
   const frames = track.frames
-  // 登り始めの直後は飛び乗り等があるので、後半 2/3 で判定
-  const from = Math.floor(frames.length / 3)
-  for (let i = from; i < frames.length; i++) {
+  // 飛び乗り・スタートの座り込みを除くため、重心が開始位置より胴長 1 つ分上がってから判定
+  const start = com.find((c) => c !== null)
+  let started = false
+  for (let i = 0; i < frames.length; i++) {
     const a = com[i]
-    if (!a) continue
+    if (!a || !start) continue
+    if (!started && (start.y - a.y) / torso >= 1) started = true
+    if (!started) continue
     for (let j = i + 1; j < frames.length && frames[j]!.t - frames[i]!.t <= FALL_WINDOW_SEC; j++) {
       const b = com[j]
       if (b && (b.y - a.y) / torso >= FALL_DROP) return frames[i]!.t
@@ -54,13 +57,15 @@ function climbFrames(track: PoseTrack, fallAt: number | null): Frame[] {
   return fallAt === null ? track.frames : track.frames.filter((f) => f.t < fallAt)
 }
 
-export function analyze(track: PoseTrack): Analysis {
+/** sent: 完登した記録なら、最後の飛び降りを落下として改善案に出さない（以降のフレームは除外する） */
+export function analyze(track: PoseTrack, wallAngle?: string, sent?: boolean): Analysis {
   const torso = torsoLength(track)
   const frames = track.frames
   const durationSec = frames.length ? frames[frames.length - 1]!.t - frames[0]!.t : 0
   const detected = frames.filter((f) => poseAt(f, track))
-  const fallAt = detectFall(track, torso)
-  const climbing: PoseTrack = { ...track, frames: climbFrames(track, fallAt) }
+  const dropAt = detectFall(track, torso)
+  const fallAt = sent ? null : dropAt
+  const climbing: PoseTrack = { ...track, frames: climbFrames(track, dropAt) }
 
   const { stills, moves } = detectStillsAndMoves(climbing, torso)
   const limbMoves = detectLimbMoves(climbing, torso)
@@ -120,5 +125,5 @@ export function analyze(track: PoseTrack): Analysis {
     fallAt,
   }
 
-  return { metrics, advice: buildAdvice(metrics, { stills, limbMoves, track: climbing, torso }), stills, moves, limbMoves }
+  return { metrics, advice: buildAdvice(metrics, { stills, limbMoves, track: climbing, torso, wallAngle, elbowSamples: elbow.length, sent }), stills, moves, limbMoves }
 }

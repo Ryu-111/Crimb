@@ -20,6 +20,9 @@ test('analyze a video, save it and see it in history', async ({ page }, info) =>
   await page.getByTestId('video-input').setInputFiles(video)
   await page.getByRole('button', { name: '解析スタート' }).click()
 
+  // 人が映っていないので全身チェックの警告が出る
+  await page.getByRole('button', { name: 'このまま解析' }).click({ timeout: 60_000 })
+
   // 人が映っていない動画なので「撮影条件」の改善案が出る
   await expect(page.getByText('撮影条件を見直しましょう')).toBeVisible({ timeout: 180_000 })
   await page.screenshot({ path: info.outputPath('result.png'), fullPage: true })

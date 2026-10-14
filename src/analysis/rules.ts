@@ -21,9 +21,30 @@ export interface AdviceContext {
   limbMoves: LimbMove[]
   track: PoseTrack
   torso: number
+  /** 記録の壁の角度（MetaFields の ANGLES）。未指定なら垂壁扱い */
+  wallAngle?: string
+  /** straightArmRatio の元になった肘角度のサンプル数。0 なら腕の判定をしない */
+  elbowSamples: number
+  /** 完登した記録。終了後に飛び降りるのは普通なので落下として扱わない */
+  sent?: boolean
 }
 
 const ORDER: Record<Severity, number> = { high: 0, medium: 1, low: 2, good: 3 }
+
+export type WallKind = 'slab' | 'vertical' | 'steep'
+
+export function wallKind(angle = ''): WallKind {
+  if (angle === 'スラブ') return 'slab'
+  if (['120°', '130°以上', 'ルーフ'].includes(angle)) return 'steep'
+  return 'vertical'
+}
+
+/** 壁の角度で重要度を変える: スラブは足とバランスが主役、強傾斜は腕の伸びが主役で足の回数は減って当然 */
+const EMPHASIS: Record<WallKind, Partial<Record<string, Severity>>> = {
+  slab: { 'straight-arm': 'low', feet: 'high', balance: 'high' },
+  vertical: {},
+  steep: { 'straight-arm': 'high', feet: 'low' },
+}
 
 /** 腕が最も曲がっていた静止区間の開始時刻 */
 function mostBentStill(ctx: AdviceContext): number | undefined {
@@ -69,7 +90,7 @@ export function buildAdvice(m: Metrics, ctx: AdviceContext): Advice[] {
     })
   }
 
-  if (m.fallAt !== null) {
+  if (m.fallAt !== null && !ctx.sent) {
     out.push({
       id: 'fall',
       severity: 'high',
@@ -79,7 +100,9 @@ export function buildAdvice(m: Metrics, ctx: AdviceContext): Advice[] {
     })
   }
 
-  if (m.straightArmRatio < T.straightArmLow) {
+  if (ctx.elbowSamples === 0) {
+    // 静止中に腕が測れなかった（静止なし・腕が隠れていた等）ので判定しない
+  } else if (m.straightArmRatio < T.straightArmLow) {
     out.push({
       id: 'straight-arm',
       severity: 'high',
@@ -158,5 +181,8 @@ export function buildAdvice(m: Metrics, ctx: AdviceContext): Advice[] {
     })
   }
 
-  return out.sort((a, b) => ORDER[a.severity] - ORDER[b.severity])
+  const emphasis = EMPHASIS[wallKind(ctx.wallAngle)]
+  return out
+    .map((a) => ({ ...a, severity: emphasis[a.id] ?? a.severity }))
+    .sort((a, b) => ORDER[a.severity] - ORDER[b.severity])
 }

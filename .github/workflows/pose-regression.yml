@@ -16,6 +16,9 @@ on:
       - 'test-fixtures/**'
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   regression:
     runs-on: ubuntu-latest

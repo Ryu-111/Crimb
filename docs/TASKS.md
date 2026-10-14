@@ -13,24 +13,30 @@ PR を出すと CI / E2E / Lighthouse / プレビュー / APK が自動で走る
 - [x] 結果画面（骨格オーバーレイ・改善案から該当シーンへジャンプ・指標の前回比）
 - [x] 保存（IndexedDB、動画保存は任意）・履歴一覧（最小版）・成長（最小版）
 - [x] Capacitor Android、GitHub Actions 一式、Dependabot
+- [x] Ponytail + Context Mode プラグインを `.claude/settings.json` に登録（手順は docs/jev-router.md）
 
 ## Codex 向け
 
-- [ ] **成長グラフ**（`src/routes/Growth.tsx`）: `chart.js` + `react-chartjs-2`（導入済み）で、`METRICS` の各指標の推移を折れ線表示。指標を選ぶタブ、期間フィルタ（1 か月 / 3 か月 / 全期間）
-- [ ] **同一課題の比較**: 課題名ごとにセッションをまとめ、指標を横並び比較する画面（`/problem/:name`）
-- [ ] **エクスポート / インポート**（`src/routes/Settings.tsx`）: sessions + tracks を JSON でダウンロード（Blob の thumbnail は base64 化）、読み込み時は重複（createdAt + problemName）をスキップ。動画は含めない
-- [ ] **全データ削除**（設定画面、確認ダイアログ付き）と、使用容量の表示（`navigator.storage.estimate()`）
-- [ ] **履歴の絞り込み**: グレード・完登/トライ・課題名検索
-- [ ] **記録の編集**: 課題名・グレード・メモを保存後に変更（`SessionMeta.notes` は入力 UI 未実装）
-- [ ] **テスト拡充**: `segments.ts` の境界値、`smoothing.ts` の長い欠損、`rules.ts` の各しきい値ちょうどのケース
-- [ ] **E2E 追加**: 記録削除、成長グラフ表示、エクスポート→インポートの往復
+- [x] **成長グラフ**（`src/routes/Growth.tsx`）: `chart.js` + `react-chartjs-2`（導入済み）で、`METRICS` の各指標の推移を折れ線表示。指標を選ぶタブ、期間フィルタ（1 か月 / 3 か月 / 全期間）
+- [x] **同一課題の比較**: 課題名ごとにセッションをまとめ、指標を横並び比較する画面（`/problem/:name`）
+- [x] **エクスポート / インポート**（`src/routes/Settings.tsx`）: sessions + tracks を JSON でダウンロード（Blob の thumbnail は base64 化）、読み込み時は重複（createdAt + problemName）をスキップ。動画は含めない
+- [x] **全データ削除**（設定画面、確認ダイアログ付き）と、使用容量の表示（`navigator.storage.estimate()`）
+- [x] **履歴の絞り込み**: グレード・完登/トライ・課題名検索
+- [x] **記録の編集**: 課題名・グレード・メモを保存後に変更（`SessionMeta.notes` は入力 UI 未実装）
+- [x] **テスト拡充**: `segments.ts` の境界値、`smoothing.ts` の長い欠損、`rules.ts` の各しきい値ちょうどのケース
+- [x] **E2E 追加**: 全削除、成長グラフ表示、インポート（重複スキップ）・エクスポート（`e2e/backup.spec.ts`）
+
+- [ ] **APK 版のバックアップ書き出し**: Android WebView は blob のダウンロード不可。`@capacitor/filesystem` + `@capacitor/share` で保存/共有（今は「アプリ版では未対応」と表示）
 
 ## Claude 向け
 
-- [ ] **タイムライン UI**: 動画の下に静止/移動区間と手足の移動イベント（`Analysis.stills / moves / limbMoves`）を帯で表示、タップでシーク
+- [x] **タイムライン UI**: 動画の下に静止/移動区間と手足の移動イベント（`Analysis.stills / moves / limbMoves`）を帯で表示、タップでシーク
 - [ ] **改善案ルールのチューニング**: 実際の登攀動画（`test-fixtures/` に追加）で `THRESHOLDS` を調整し、`*.expected.json` を作成
-- [ ] **壁の角度・グレードに応じたアドバイス**: 例: 強傾斜ではストレートアームより体幹の指摘を優先、スラブでは足の精度を重視
-- [ ] **撮影ガイド**: 初回起動時のオンボーディング、解析前に全身が映っているかを最初の数フレームでチェックして警告
-- [ ] **解析の高速化**: 長い動画で Web Worker / OffscreenCanvas 化、解析中の画面スリープ防止（Wake Lock）
+- [x] **壁の角度に応じたアドバイス**: `rules.ts` の `EMPHASIS`（スラブ=足・バランス重視、強傾斜=腕の伸び重視）
+- [ ] **グレードに応じたアドバイス**: 実データでしきい値を決める必要あり（`test-fixtures/` 待ち）
+- [x] **撮影ガイド（初回表示）**: 初回だけ撮影のコツを展開。検出率が低いときは既存の `capture` 改善案で案内
+- [x] **解析前の全身チェック**: 冒頭 6 フレームで全身が映っているか確認し、足りなければ「撮り直す / このまま解析」
+- [x] **解析中の画面スリープ防止**（Wake Lock）
+- [ ] **解析の高速化**: Web Worker / OffscreenCanvas 化。実機で解析時間を測ってから判断
 - [ ] **UX 全体の仕上げ**: 空状態、エラー表示、アクセシビリティ、iOS Safari での動画選択・シークの実機確認
-- [ ] **ムーブ単位の振り返り**: ムーブごとにサムネと所要時間を並べ、「一番苦戦したムーブ」を表示
+- [x] **ムーブ単位の振り返り**: ムーブごとにサムネと所要時間を並べ、「一番苦戦したムーブ」を表示

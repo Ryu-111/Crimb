@@ -29,12 +29,21 @@ src/
     synthetic.ts  テスト用の合成クライマー climb({ bend, useFeet, pause, fall })
   pose/       MediaPipe（landmarker.ts）、動画→時系列（extractFrames.ts）、平滑化（smoothing.ts）
   db/db.ts    Dexie: sessions / tracks / videos（姿勢時系列と動画は別テーブル）
-  routes/     画面（HashRouter）。Home / NewSession / Analyze / Result / Growth / Settings
-  components/ VideoOverlay（骨格描画）, MetricGrid, AdviceList, Thumb
+  routes/     画面（HashRouter）。Home / NewSession / Analyze / Result / Problem（同一課題の比較） / Growth / Settings
+  components/ VideoOverlay（骨格描画）, Timeline, MoveList, MetaFields（課題情報の入力・GRADES/ANGLES）, MetricGrid, AdviceList, Thumb
   lib/        draft（撮影〜保存までの一時状態）, format（指標の表示定義 METRICS）
 e2e/          Playwright。@pose タグは実動画の解析回帰（test-fixtures/）
 android/      Capacitor Android プロジェクト
 ```
+
+## 開発スタイル（Ponytail）
+
+[Ponytail](https://github.com/DietrichGebert/ponytail) の方針で書く（Claude Code はプラグインが自動で有効になる）。
+
+- 頼まれていない機能・オプション・抽象化は作らない。既存のコード → 標準/ブラウザ機能 → 導入済み依存 の順に使う
+- 依存を数行のために追加しない。最短で読みやすい差分を選ぶ
+- ただし検証・エラー処理・アクセシビリティ・テストは削らない（非自明なロジックには小さなテストを付ける）
+- 既知の制限がある近道には `// shortcut: <制限>, <いつ直すか>` コメント
 
 ## 規約
 

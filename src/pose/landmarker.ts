@@ -6,15 +6,6 @@ const CDN_MODEL =
 
 const local = (path: string) => new URL(path, document.baseURI).href
 
-async function reachable(url: string): Promise<boolean> {
-  try {
-    const res = await fetch(url, { method: 'HEAD' })
-    return res.ok
-  } catch {
-    return false
-  }
-}
-
 let instance: Promise<PoseLandmarker> | null = null
 
 /** PoseLandmarker を 1 度だけ初期化（同梱ファイル → CDN の順に試す、GPU → CPU の順に試す） */
@@ -26,11 +17,16 @@ export function getLandmarker(): Promise<PoseLandmarker> {
   return instance
 }
 
+// 同梱ファイルを直接読み込んで試す（オフラインでも SW のプリキャッシュが GET に応える）。失敗したら CDN
 async function create(): Promise<PoseLandmarker> {
-  const localWasm = local('mediapipe/wasm')
-  const wasm = (await reachable(`${localWasm}/vision_wasm_internal.wasm`)) ? localWasm : CDN_WASM
-  const localModel = local('mediapipe/models/pose_landmarker_lite.task')
-  const model = (await reachable(localModel)) ? localModel : CDN_MODEL
+  try {
+    return await createFrom(local('mediapipe/wasm'), local('mediapipe/models/pose_landmarker_lite.task'))
+  } catch {
+    return createFrom(CDN_WASM, CDN_MODEL)
+  }
+}
+
+async function createFrom(wasm: string, model: string): Promise<PoseLandmarker> {
   const fileset = await FilesetResolver.forVisionTasks(wasm)
   const options = (delegate: 'GPU' | 'CPU') => ({
     baseOptions: { modelAssetPath: model, delegate },

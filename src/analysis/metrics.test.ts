@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { LM } from './geometry'
 import { analyze } from './metrics'
 import { climb } from './synthetic'
 
@@ -34,6 +35,38 @@ describe('analyze', () => {
     expect(advice[0]!.t).toBe(metrics.fallAt)
   })
 
+  it('detects an early fall even when the clip keeps running on the mat', () => {
+    const track = climb({ moves: 3, fall: true })
+    const last = track.frames[track.frames.length - 1]!
+    const dt = 1 / track.fps
+    const n = 4 * track.frames.length
+    for (let i = 1; i <= n; i++) track.frames.push({ ...last, t: last.t + i * dt })
+    const { metrics, advice } = analyze(track)
+    expect(metrics.fallAt).not.toBeNull()
+    expect(metrics.fallAt!).toBeLessThan(track.frames[track.frames.length - 1]!.t / 3)
+    expect(advice[0]!.id).toBe('fall')
+  })
+
+  it('does not report the drop after a completed send as a fall', () => {
+    const fell = analyze(climb({ fall: true }))
+    const { metrics, advice } = analyze(climb({ fall: true }), undefined, true)
+    expect(metrics.fallAt).toBeNull()
+    // 飛び降り区間は登りの指標から除外される
+    expect(metrics.moveCount).toBe(fell.metrics.moveCount)
+    expect(advice.map((a) => a.id)).not.toContain('fall')
+  })
+
+  it('gives no straight-arm advice when the arms were never measured during stills', () => {
+    const track = climb({ bend: 1 })
+    // 肘が常に隠れている
+    const hidden = new Set<number>([LM.leftElbow, LM.rightElbow])
+    track.frames = track.frames.map((f) => ({ ...f, lm: f.lm && f.lm.map((l, i) => (hidden.has(i) ? { ...l, v: 0 } : l)) }))
+    const { advice } = analyze(track)
+    const ids = advice.map((a) => a.id)
+    expect(ids).not.toContain('straight-arm')
+    expect(ids).not.toContain('straight-arm-good')
+  })
+
   it('flags long hesitation', () => {
     const { advice } = analyze(climb({ pause: 10, moves: 2 }))
     expect(advice.map((a) => a.id)).toContain('hesitation')
@@ -57,5 +90,14 @@ describe('analyze', () => {
     const { advice } = analyze(climb({ bend: 1, useFeet: false, fall: true }))
     const sev = advice.map((a) => order[a.severity])
     expect(sev).toEqual([...sev].sort((a, b) => a - b))
+  })
+
+  it('reorders advice by wall angle', () => {
+    const track = climb({ bend: 1, useFeet: false })
+    const ids = (angle: string) => analyze(track, angle).advice.map((a) => a.id)
+    const before = (list: string[], a: string, b: string) => list.indexOf(a) < list.indexOf(b)
+    expect(before(ids('スラブ'), 'feet', 'straight-arm')).toBe(true)
+    expect(before(ids('130°以上'), 'straight-arm', 'feet')).toBe(true)
+    expect(analyze(track, 'スラブ').advice.find((a) => a.id === 'straight-arm')!.severity).toBe('low')
   })
 })

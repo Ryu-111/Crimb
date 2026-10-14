@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
 import { analyze } from '../analysis/metrics'
-import { MAX_DURATION_SEC, captureThumbnail, extractPoseTrack, loadVideo } from '../pose/extractFrames'
+import { MAX_DURATION_SEC, captureThumbnail, checkFullBody, extractPoseTrack, loadVideo } from '../pose/extractFrames'
 import { useDraft } from '../lib/draft'
 
 export default function Analyze() {
@@ -16,6 +16,9 @@ export default function Analyze() {
   useEffect(() => {
     if (error) backRef.current?.focus()
   }, [error])
+
+  /** 全身が映っていないときの「このまま解析」 */
+  const [proceed, setProceed] = useState<() => void>()
 
   useEffect(() => {
     if (!draft) return
@@ -32,6 +35,12 @@ export default function Analyze() {
         setStage('動画を読み込み中…')
         const video = await loadVideo(draft.url)
         setTruncated(video.duration > MAX_DURATION_SEC)
+        setStage('撮影範囲を確認中…')
+        if (!(await checkFullBody(video))) {
+          await new Promise<void>((resolve) => setProceed(() => resolve))
+          setProceed(undefined)
+        }
+        if (ctrl.signal.aborted) return
         setStage('姿勢を推定中…')
         const track = await extractPoseTrack(video, { onProgress: setProgress, signal: ctrl.signal })
         setStage('ムーブを解析中…')
@@ -65,6 +74,21 @@ export default function Analyze() {
             戻る
           </button>
         </>
+      ) : proceed ? (
+        <div role="alert" className="flex flex-col gap-3 rounded-lg bg-slate-800 p-4">
+          <p className="font-bold text-amber-300">全身が映っていないようです</p>
+          <p className="text-sm text-slate-300">
+            手先から足先まで全身が画面に収まるように撮ると、正しく解析できます。スマホは縦向きのまま、壁から少し離れて撮るのがおすすめです。
+          </p>
+          <div className="flex justify-center gap-3">
+            <button className="rounded-lg bg-slate-700 px-4 py-2" onClick={() => navigate('/new')}>
+              撮り直す
+            </button>
+            <button className="rounded-lg bg-accent px-4 py-2 font-bold text-slate-950" onClick={proceed}>
+              このまま解析
+            </button>
+          </div>
+        </div>
       ) : (
         <>
           <div className="text-4xl">🧗</div>

@@ -108,3 +108,20 @@ export function torsoLength(track: PoseTrack): number {
   }
   return median(values) || 0.25
 }
+
+const FULL_BODY = [
+  LM.leftShoulder,
+  LM.rightShoulder,
+  LM.leftHip,
+  LM.rightHip,
+  LM.leftWrist,
+  LM.rightWrist,
+  LM.leftAnkle,
+  LM.rightAnkle,
+]
+
+/** 肩・腰・手首・足首がすべて見えているフレームが半数以上なら true（解析前の撮影チェック） */
+export function fullBodyVisible(frames: Frame[]): boolean {
+  const ok = frames.filter((f) => f.lm && FULL_BODY.every((i) => (f.lm?.[i]?.v ?? 0) >= MIN_VISIBILITY)).length
+  return frames.length > 0 && ok * 2 >= frames.length
+}

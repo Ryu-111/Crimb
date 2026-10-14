@@ -1,3 +1,4 @@
+import { fullBodyVisible } from '../analysis/geometry'
 import type { Frame, PoseTrack } from '../analysis/types'
 import { getLandmarker } from './landmarker'
 import { cleanFrames } from './smoothing'
@@ -79,18 +80,32 @@ export async function extractPoseTrack(video: HTMLVideoElement, opts: ExtractOpt
     const t = Math.min(i * step, duration)
     await seek(video, t)
     clock += step * 1000
-    const res = landmarker.detectForVideo(video, clock)
-    const lm = res.landmarks[0]
-    frames.push({
-      t,
-      lm: lm ? lm.map((p) => ({ x: round(p.x), y: round(p.y), v: round(p.visibility ?? 1) })) : null,
-    })
+    frames.push({ t, lm: detect(landmarker, video) })
     opts.onProgress?.(i / total)
   }
   return { fps: SAMPLE_FPS, width: video.videoWidth, height: video.videoHeight, frames: cleanFrames(frames) }
 }
 
 const round = (v: number) => Math.round(v * 1000) / 1000
+
+function detect(landmarker: Awaited<ReturnType<typeof getLandmarker>>, video: HTMLVideoElement): Frame['lm'] {
+  const lm = landmarker.detectForVideo(video, clock).landmarks[0]
+  return lm ? lm.map((p) => ({ x: round(p.x), y: round(p.y), v: round(p.visibility ?? 1) })) : null
+}
+
+/** 冒頭 1.5 秒 (6 フレーム) を推定し、全身が映っているかを返す */
+export async function checkFullBody(video: HTMLVideoElement): Promise<boolean> {
+  const landmarker = await getLandmarker()
+  const end = Math.min(video.duration || 0, 1.5)
+  const frames: Frame[] = []
+  for (let i = 0; i < 6; i++) {
+    const t = (end * i) / 5
+    await seek(video, t)
+    clock += 1000 / SAMPLE_FPS
+    frames.push({ t, lm: detect(landmarker, video) })
+  }
+  return fullBodyVisible(frames)
+}
 
 /** 動画の指定時刻のサムネイル (JPEG) */
 export async function captureThumbnail(video: HTMLVideoElement, t: number, width = 320): Promise<Blob | undefined> {

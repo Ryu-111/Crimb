@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { analyze } from '../analysis/metrics'
@@ -74,23 +74,35 @@ export function DraftResult() {
   const navigate = useNavigate()
   const [keepVideo, setKeepVideo] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState<string>()
   if (!draft?.track || !draft.analysis || !draft.createdAt) return <Navigate to="/new" replace />
   const { track, analysis, createdAt } = draft
 
   const save = async () => {
     setSaving(true)
-    const id = await saveSession(
-      {
-        ...draft.meta,
-        createdAt,
-        metrics: analysis.metrics,
-        advice: analysis.advice,
-        thumbnail: draft.thumbnail,
-        hasVideo: keepVideo,
-      },
-      track,
-      keepVideo ? draft.file : undefined,
-    )
+    setSaveError(undefined)
+    let id: number
+    try {
+      id = await saveSession(
+        {
+          ...draft.meta,
+          createdAt,
+          metrics: analysis.metrics,
+          advice: analysis.advice,
+          thumbnail: draft.thumbnail,
+          hasVideo: keepVideo,
+        },
+        track,
+        keepVideo ? draft.file : undefined,
+      )
+    } catch (e) {
+      setSaving(false)
+      setSaveError(
+        `保存に失敗しました: ${(e as Error).message}` +
+          (keepVideo ? '。容量不足の可能性があります。「動画も端末に保存する」を外して再度お試しください。' : ''),
+      )
+      return
+    }
     // draft はここでは消さない（React Router の遷移は transition 扱いのため、先に draft が消えて
     // /new へリダイレクトされてしまう）。次の解析開始時に置き換えられ、そのとき Object URL も破棄される
     navigate(`/session/${id}`, { replace: true })
@@ -116,6 +128,11 @@ export function DraftResult() {
         >
           記録を保存
         </button>
+        {saveError && (
+          <p role="alert" className="text-sm text-rose-400">
+            {saveError}
+          </p>
+        )}
         <button className="w-full text-sm text-slate-400" onClick={() => navigate('/new')}>
           保存せずに戻る
         </button>
@@ -128,17 +145,28 @@ export function DraftResult() {
 export function SavedResult() {
   const id = Number(useParams().id)
   const navigate = useNavigate()
-  const session = useLiveQuery(() => db.sessions.get(id), [id])
-  const track = useLiveQuery(() => db.tracks.get(id), [id])
+  // undefined = 読み込み中、null = 見つからない（Dexie の get() は該当なしでも undefined を返すため区別する）
+  const session = useLiveQuery(async () => (await db.sessions.get(id)) ?? null, [id])
+  const track = useLiveQuery(async () => (await db.tracks.get(id)) ?? null, [id])
   const video = useLiveQuery(() => db.videos.get(id), [id])
   const videoUrl = useObjectUrl(video?.blob)
   const [editing, setEditing] = useState<SessionMeta>()
 
   // 解析ロジックが改善されたときに古い記録にも新しい改善案を出せるよう、保存済みの姿勢から再計算
   const analysis = useMemo(
-    () => (track ? analyze(track.track, session?.wallAngle) : undefined),
-    [track, session?.wallAngle],
+    () => (track ? analyze(track.track, session?.wallAngle, session?.sent) : undefined),
+    [track, session?.wallAngle, session?.sent],
   )
+
+  // 成長グラフ・課題比較・前回比較は保存済みの指標を読むので、再計算結果と違えば書き戻して揃える
+  // shortcut: 開いた記録だけが更新される。全件を揃えるなら一括再解析のマイグレーションを足す
+  useEffect(() => {
+    if (!session || !analysis) return
+    const stale =
+      JSON.stringify(session.metrics) !== JSON.stringify(analysis.metrics) ||
+      JSON.stringify(session.advice) !== JSON.stringify(analysis.advice)
+    if (stale) db.sessions.update(id, { metrics: analysis.metrics, advice: analysis.advice }).catch(() => {})
+  }, [id, session, analysis])
 
   if (session === undefined || track === undefined) return <p className="text-slate-400">読み込み中…</p>
   if (!session || !track || !analysis) return <p className="text-slate-400">記録が見つかりません</p>

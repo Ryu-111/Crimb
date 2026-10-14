@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Capacitor } from '@capacitor/core'
 import { deleteAll, exportBackup, importBackup, isBackup } from '../db/backup'
 
 const mb = (bytes = 0) => `${(bytes / 1024 / 1024).toFixed(1)} MB`
@@ -12,11 +13,29 @@ export default function Settings() {
 
   const download = async () => {
     const backup = await exportBackup()
+    const name = `crimb-backup-${new Date().toISOString().slice(0, 10)}.json`
+    const file = new File([JSON.stringify(backup)], name, { type: 'application/json' })
+    // iOS の PWA などダウンロードが不安定な環境では共有シート（「ファイルに保存」）を使う
+    if (navigator.canShare?.({ files: [file] })) {
+      try {
+        await navigator.share({ files: [file] })
+        setMessage(`${backup.sessions.length} 件を書き出しました`)
+      } catch (e) {
+        if ((e as Error).name !== 'AbortError') setMessage(`書き出しに失敗しました: ${(e as Error).message}`)
+      }
+      return
+    }
+    // shortcut: Android アプリ（WebView）は <a download> を保存できない。@capacitor/filesystem 等を入れるまでは案内だけ出す
+    if (Capacitor.isNativePlatform()) {
+      setMessage('アプリ版ではまだ書き出しに対応していません')
+      return
+    }
     const a = document.createElement('a')
-    a.href = URL.createObjectURL(new Blob([JSON.stringify(backup)], { type: 'application/json' }))
-    a.download = `crimb-backup-${new Date().toISOString().slice(0, 10)}.json`
+    a.href = URL.createObjectURL(file)
+    a.download = name
     a.click()
-    URL.revokeObjectURL(a.href)
+    // すぐに revoke すると Safari でダウンロードが失われることがあるので少し待つ
+    setTimeout(() => URL.revokeObjectURL(a.href), 10_000)
     setMessage(`${backup.sessions.length} 件を書き出しました`)
   }
 

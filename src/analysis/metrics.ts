@@ -54,7 +54,8 @@ function climbFrames(track: PoseTrack, fallAt: number | null): Frame[] {
   return fallAt === null ? track.frames : track.frames.filter((f) => f.t < fallAt)
 }
 
-export function analyze(track: PoseTrack, wallAngle?: string): Analysis {
+/** sent: 完登した記録なら、最後の飛び降りを落下として改善案に出さない（以降のフレームは除外する） */
+export function analyze(track: PoseTrack, wallAngle?: string, sent?: boolean): Analysis {
   const torso = torsoLength(track)
   const frames = track.frames
   const durationSec = frames.length ? frames[frames.length - 1]!.t - frames[0]!.t : 0
@@ -120,5 +121,5 @@ export function analyze(track: PoseTrack, wallAngle?: string): Analysis {
     fallAt,
   }
 
-  return { metrics, advice: buildAdvice(metrics, { stills, limbMoves, track: climbing, torso, wallAngle }), stills, moves, limbMoves }
+  return { metrics, advice: buildAdvice(metrics, { stills, limbMoves, track: climbing, torso, wallAngle, elbowSamples: elbow.length, sent }), stills, moves, limbMoves }
 }

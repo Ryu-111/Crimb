@@ -23,6 +23,10 @@ export interface AdviceContext {
   torso: number
   /** 記録の壁の角度（MetaFields の ANGLES）。未指定なら垂壁扱い */
   wallAngle?: string
+  /** straightArmRatio の元になった肘角度のサンプル数。0 なら腕の判定をしない */
+  elbowSamples: number
+  /** 完登した記録。終了後に飛び降りるのは普通なので落下として扱わない */
+  sent?: boolean
 }
 
 const ORDER: Record<Severity, number> = { high: 0, medium: 1, low: 2, good: 3 }
@@ -86,7 +90,7 @@ export function buildAdvice(m: Metrics, ctx: AdviceContext): Advice[] {
     })
   }
 
-  if (m.fallAt !== null) {
+  if (m.fallAt !== null && !ctx.sent) {
     out.push({
       id: 'fall',
       severity: 'high',
@@ -96,7 +100,9 @@ export function buildAdvice(m: Metrics, ctx: AdviceContext): Advice[] {
     })
   }
 
-  if (m.straightArmRatio < T.straightArmLow) {
+  if (ctx.elbowSamples === 0) {
+    // 静止中に腕が測れなかった（静止なし・腕が隠れていた等）ので判定しない
+  } else if (m.straightArmRatio < T.straightArmLow) {
     out.push({
       id: 'straight-arm',
       severity: 'high',

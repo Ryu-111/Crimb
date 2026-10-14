@@ -51,6 +51,7 @@ export function isBackup(x: unknown): x is Backup {
         e &&
         typeof e.session?.createdAt === 'number' &&
         typeof e.session.problemName === 'string' &&
+        e.session.metrics !== null &&
         typeof e.session.metrics === 'object' &&
         Array.isArray(e.session.advice) &&
         (e.track === null || Array.isArray(e.track?.frames)),
@@ -70,6 +71,7 @@ export async function importBackup(backup: Backup): Promise<number> {
       const id = (await db.sessions.add({ ...rest, thumbnail: thumb })) as number
       if (track) await db.tracks.put({ sessionId: id, track })
     })
+    existing.add(`${session.createdAt}|${session.problemName}`)
     added++
   }
   return added

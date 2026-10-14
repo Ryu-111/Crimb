@@ -18,7 +18,8 @@ export default function Timeline({
   if (duration <= 0) return null
   const pos = (t: number) => `${(t / duration) * 100}%`
   const width = (a: number, b: number) => `${Math.max(0.5, ((b - a) / duration) * 100)}%`
-  const fall = analysis.metrics.fallAt
+  // 完登の記録では最後の飛び降りを落下として出さない（改善案に 'fall' があるときだけ印を付ける）
+  const fall = analysis.advice.find((a) => a.id === 'fall')?.t ?? null
   return (
     <div
       className="space-y-1 text-xs text-slate-400"

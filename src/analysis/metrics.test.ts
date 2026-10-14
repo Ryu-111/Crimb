@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { LM } from './geometry'
 import { analyze } from './metrics'
 import { climb } from './synthetic'
 
@@ -32,6 +33,25 @@ describe('analyze', () => {
     expect(metrics.fallAt).not.toBeNull()
     expect(advice[0]!.id).toBe('fall')
     expect(advice[0]!.t).toBe(metrics.fallAt)
+  })
+
+  it('does not report the drop after a completed send as a fall', () => {
+    const fell = analyze(climb({ fall: true }))
+    const { metrics, advice } = analyze(climb({ fall: true }), undefined, true)
+    expect(metrics.fallAt).toBe(fell.metrics.fallAt)
+    expect(metrics.moveCount).toBe(fell.metrics.moveCount)
+    expect(advice.map((a) => a.id)).not.toContain('fall')
+  })
+
+  it('gives no straight-arm advice when the arms were never measured during stills', () => {
+    const track = climb({ bend: 1 })
+    // 肘が常に隠れている
+    const hidden = new Set<number>([LM.leftElbow, LM.rightElbow])
+    track.frames = track.frames.map((f) => ({ ...f, lm: f.lm && f.lm.map((l, i) => (hidden.has(i) ? { ...l, v: 0 } : l)) }))
+    const { advice } = analyze(track)
+    const ids = advice.map((a) => a.id)
+    expect(ids).not.toContain('straight-arm')
+    expect(ids).not.toContain('straight-arm-good')
   })
 
   it('flags long hesitation', () => {

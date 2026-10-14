@@ -13,5 +13,7 @@ describe('isBackup', () => {
     expect(isBackup({ format: 'other', version: 1, sessions: [] })).toBe(false)
     expect(isBackup({ format: BACKUP_FORMAT, version: 2, sessions: [] })).toBe(false)
     expect(isBackup({ format: BACKUP_FORMAT, version: 1, sessions: [{ session: { createdAt: '1' } }] })).toBe(false)
+    const nullMetrics = { ...entry, session: { ...entry.session, metrics: null } }
+    expect(isBackup({ format: BACKUP_FORMAT, version: 1, exportedAt: 0, sessions: [nullMetrics] })).toBe(false)
   })
 })

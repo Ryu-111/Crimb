@@ -20,7 +20,7 @@ const base: Metrics = {
   verticalGain: 2,
   fallAt: null,
 }
-const ctx = { stills: [], limbMoves: [], track: { fps: 15, width: 1, height: 1, frames: [] }, torso: 0.1 }
+const ctx = { stills: [], limbMoves: [], track: { fps: 15, width: 1, height: 1, frames: [] }, torso: 0.1, elbowSamples: 1 }
 const ids = (m: Partial<Metrics>) => buildAdvice({ ...base, ...m }, ctx).map((a) => a.id)
 
 describe('buildAdvice thresholds', () => {
@@ -47,6 +47,12 @@ describe('buildAdvice thresholds', () => {
 
   it('skips the footwork advice when there are too few hand moves to judge', () => {
     expect(ids({ handMoves: 2, footMoves: 0, footHandRatio: 0 })).not.toContain('feet')
+  })
+
+  it('skips the straight-arm advice when no elbow angle was measured', () => {
+    const none = (m: Partial<Metrics>) => buildAdvice({ ...base, ...m }, { ...ctx, elbowSamples: 0 }).map((a) => a.id)
+    expect(none({ straightArmRatio: 0 })).not.toContain('straight-arm')
+    expect(none({ straightArmRatio: 1 })).not.toContain('straight-arm-good')
   })
 
   it('treats a missing path as no data rather than inefficiency', () => {

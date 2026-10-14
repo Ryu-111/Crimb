@@ -54,7 +54,7 @@ function climbFrames(track: PoseTrack, fallAt: number | null): Frame[] {
   return fallAt === null ? track.frames : track.frames.filter((f) => f.t < fallAt)
 }
 
-export function analyze(track: PoseTrack): Analysis {
+export function analyze(track: PoseTrack, wallAngle?: string): Analysis {
   const torso = torsoLength(track)
   const frames = track.frames
   const durationSec = frames.length ? frames[frames.length - 1]!.t - frames[0]!.t : 0
@@ -120,5 +120,5 @@ export function analyze(track: PoseTrack): Analysis {
     fallAt,
   }
 
-  return { metrics, advice: buildAdvice(metrics, { stills, limbMoves, track: climbing, torso }), stills, moves, limbMoves }
+  return { metrics, advice: buildAdvice(metrics, { stills, limbMoves, track: climbing, torso, wallAngle }), stills, moves, limbMoves }
 }

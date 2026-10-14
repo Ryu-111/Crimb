@@ -8,6 +8,16 @@ export default function NewSession() {
   const navigate = useNavigate()
   const { setDraft } = useDraft()
   const [file, setFile] = useState<File | null>(null)
+  // 初回だけ撮影のコツを開いておく（localStorage が使えない環境では毎回開く）
+  const [firstVisit] = useState(() => {
+    try {
+      const seen = localStorage.getItem('crimb:tips-seen')
+      localStorage.setItem('crimb:tips-seen', '1')
+      return !seen
+    } catch {
+      return true
+    }
+  })
   const [meta, setMeta] = useState<SessionMeta>({ problemName: '', grade: '5級', wallAngle: '垂壁', sent: true, notes: '' })
 
   const start = () => {
@@ -46,7 +56,7 @@ export default function NewSession() {
       </div>
       {file && <p className="truncate text-sm text-lime-400">✓ {file.name}</p>}
 
-      <details className="rounded-lg bg-slate-800/50 p-3 text-sm text-slate-300">
+      <details className="rounded-lg bg-slate-800/50 p-3 text-sm text-slate-300" open={firstVisit}>
         <summary className="cursor-pointer">上手に撮るコツ</summary>
         <ul className="mt-2 list-disc space-y-1 pl-5">
           <li>スマホは三脚や床に置いて固定する</li>

@@ -135,7 +135,10 @@ export function SavedResult() {
   const [editing, setEditing] = useState<SessionMeta>()
 
   // 解析ロジックが改善されたときに古い記録にも新しい改善案を出せるよう、保存済みの姿勢から再計算
-  const analysis = useMemo(() => (track ? analyze(track.track) : undefined), [track])
+  const analysis = useMemo(
+    () => (track ? analyze(track.track, session?.wallAngle) : undefined),
+    [track, session?.wallAngle],
+  )
 
   if (session === undefined || track === undefined) return <p className="text-slate-400">読み込み中…</p>
   if (!session || !track || !analysis) return <p className="text-slate-400">記録が見つかりません</p>

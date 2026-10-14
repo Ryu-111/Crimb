@@ -58,4 +58,13 @@ describe('analyze', () => {
     const sev = advice.map((a) => order[a.severity])
     expect(sev).toEqual([...sev].sort((a, b) => a - b))
   })
+
+  it('reorders advice by wall angle', () => {
+    const track = climb({ bend: 1, useFeet: false })
+    const ids = (angle: string) => analyze(track, angle).advice.map((a) => a.id)
+    const before = (list: string[], a: string, b: string) => list.indexOf(a) < list.indexOf(b)
+    expect(before(ids('スラブ'), 'feet', 'straight-arm')).toBe(true)
+    expect(before(ids('130°以上'), 'straight-arm', 'feet')).toBe(true)
+    expect(analyze(track, 'スラブ').advice.find((a) => a.id === 'straight-arm')!.severity).toBe('low')
+  })
 })

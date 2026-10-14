@@ -14,13 +14,16 @@ export default function Analyze() {
   useEffect(() => {
     if (!draft) return
     const ctrl = new AbortController()
+    // 解析中に画面が消えると端末によっては処理が止まるので、スリープを防ぐ（未対応なら何もしない）
+    let lock: WakeLockSentinel | undefined
+    navigator.wakeLock?.request('screen').then((l) => (lock = l), () => {})
     ;(async () => {
       try {
         const video = await loadVideo(draft.url)
         setStage('姿勢を推定中…')
         const track = await extractPoseTrack(video, { onProgress: setProgress, signal: ctrl.signal })
         setStage('ムーブを解析中…')
-        const analysis = analyze(track)
+        const analysis = analyze(track, draft.meta.wallAngle)
         // E2E / 解析回帰テストから結果を読むためのフック
         ;(window as unknown as { __crimbLastAnalysis?: unknown }).__crimbLastAnalysis = analysis
         const thumbnail = await captureThumbnail(video, Math.min(video.duration / 2, 3))
@@ -30,7 +33,10 @@ export default function Analyze() {
         if ((e as Error).name !== 'AbortError') setError((e as Error).message)
       }
     })()
-    return () => ctrl.abort()
+    return () => {
+      ctrl.abort()
+      lock?.release()
+    }
     // draft.url が変わったときだけ再解析する
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [draft?.url])

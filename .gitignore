@@ -15,6 +15,7 @@ android/local.properties
 android/app/src/main/assets/public
 android/capacitor-cordova-android-plugins
 *.keystore
+!android/app/debug.keystore
 *.jks
 pose-results
 .lighthouseci

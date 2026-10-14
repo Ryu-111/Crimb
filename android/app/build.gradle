@@ -20,6 +20,13 @@ android {
     // 署名鍵は環境変数から（未設定なら release も debug 鍵で署名してインストール可能にする）
     def keystorePath = System.getenv('ANDROID_KEYSTORE_PATH')
     signingConfigs {
+        // 固定の debug 鍵をコミット（CI ランナーの使い捨て鍵だと上書きインストールできず、アンインストールで記録が消える）
+        debug {
+            storeFile file('debug.keystore')
+            storePassword 'android'
+            keyAlias 'androiddebugkey'
+            keyPassword 'android'
+        }
         release {
             if (keystorePath) {
                 storeFile file(keystorePath)

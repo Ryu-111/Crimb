@@ -55,7 +55,7 @@ jev-router + Codex での開発手順は [docs/jev-router.md](docs/jev-router.md
 
 ### APK の署名（任意）
 
-Secrets 未設定でも debug 鍵で署名された APK が作られ、そのままインストールできます。
+Secrets 未設定でもリポジトリに同梱の固定 debug 鍵（`android/app/debug.keystore`）で署名された APK が作られ、上書きインストールできます。
 アップデートを継続配布するなら固定の鍵を作って Secrets に登録してください。
 
 ```bash

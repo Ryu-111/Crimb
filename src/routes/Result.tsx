@@ -2,9 +2,10 @@ import { useMemo, useRef, useState } from 'react'
 import { Navigate, useNavigate, useParams } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { analyze } from '../analysis/metrics'
-import type { Advice, Metrics, PoseTrack } from '../analysis/types'
+import type { Analysis, PoseTrack } from '../analysis/types'
 import AdviceList from '../components/AdviceList'
 import MetricGrid from '../components/MetricGrid'
+import Timeline from '../components/Timeline'
 import VideoOverlay, { type VideoOverlayHandle } from '../components/VideoOverlay'
 import { db, deleteSession, previousSession, saveSession, type SessionMeta } from '../db/db'
 import { useDraft } from '../lib/draft'
@@ -15,14 +16,15 @@ interface ViewProps {
   meta: SessionMeta
   createdAt: number
   track: PoseTrack
-  metrics: Metrics
-  advice: Advice[]
+  analysis: Analysis
   videoUrl?: string
   children?: React.ReactNode
 }
 
-function ResultView({ meta, createdAt, track, metrics, advice, videoUrl, children }: ViewProps) {
+function ResultView({ meta, createdAt, track, analysis, videoUrl, children }: ViewProps) {
+  const { metrics, advice } = analysis
   const overlay = useRef<VideoOverlayHandle>(null)
+  const seek = videoUrl ? (t: number) => overlay.current?.seek(t) : undefined
   const previous = useLiveQuery(
     () => (meta.problemName ? previousSession(meta.problemName, createdAt) : undefined),
     [meta.problemName, createdAt],
@@ -36,9 +38,10 @@ function ResultView({ meta, createdAt, track, metrics, advice, videoUrl, childre
         </p>
       </header>
       <VideoOverlay ref={overlay} src={videoUrl} track={track} />
+      <Timeline analysis={analysis} duration={metrics.durationSec} onSeek={seek} />
       <div>
         <h2 className="mb-2 font-semibold">改善ポイント</h2>
-        <AdviceList advice={advice} onJump={videoUrl ? (t) => overlay.current?.seek(t) : undefined} />
+        <AdviceList advice={advice} onJump={seek} />
       </div>
       <div>
         <h2 className="mb-2 font-semibold">
@@ -84,8 +87,7 @@ export function DraftResult() {
       meta={draft.meta}
       createdAt={createdAt}
       track={track}
-      metrics={analysis.metrics}
-      advice={analysis.advice}
+      analysis={analysis}
       videoUrl={draft.url}
     >
       <div className="space-y-3 rounded-xl bg-slate-800/50 p-4">
@@ -134,8 +136,7 @@ export function SavedResult() {
       meta={session}
       createdAt={session.createdAt}
       track={track.track}
-      metrics={analysis.metrics}
-      advice={analysis.advice}
+      analysis={analysis}
       videoUrl={videoUrl}
     >
       <button className="w-full rounded-lg border border-rose-500/50 py-2 text-sm text-rose-400" onClick={remove}>

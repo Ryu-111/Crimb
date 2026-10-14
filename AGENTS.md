@@ -36,6 +36,15 @@ e2e/          Playwright。@pose タグは実動画の解析回帰（test-fixtur
 android/      Capacitor Android プロジェクト
 ```
 
+## 開発スタイル（Ponytail）
+
+[Ponytail](https://github.com/DietrichGebert/ponytail) の方針で書く（Claude Code はプラグインが自動で有効になる）。
+
+- 頼まれていない機能・オプション・抽象化は作らない。既存のコード → 標準/ブラウザ機能 → 導入済み依存 の順に使う
+- 依存を数行のために追加しない。最短で読みやすい差分を選ぶ
+- ただし検証・エラー処理・アクセシビリティ・テストは削らない（非自明なロジックには小さなテストを付ける）
+- 既知の制限がある近道には `// shortcut: <制限>, <いつ直すか>` コメント
+
 ## 規約
 
 - TypeScript strict / `noUncheckedIndexedAccess`。`any` 禁止

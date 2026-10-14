@@ -23,6 +23,50 @@ jev-claude   # Claude Code（CLAUDE.md → AGENTS.md を読む）
 jev-codex    # Codex（AGENTS.md を読む）
 ```
 
+## プラグイン（Ponytail + Context Mode）
+
+| プラグイン | 役割 |
+|---|---|
+| [Ponytail](https://github.com/DietrichGebert/ponytail) | 必要最小限のコードで解く方針をエージェントに徹底させる（MIT） |
+| [Context Mode](https://github.com/mksglu/context-mode) | テスト結果・ログ・Playwright のスナップショットなど大きな出力を要約し、コンテキストを節約する MCP（Elastic-2.0、Node.js 22.5+ が必要） |
+
+**Claude Code（`jev-claude`）**: `.claude/settings.json` に登録済み。リポジトリを開いて信頼すると、両方のインストールを求められます。手動なら:
+
+```
+/plugin marketplace add DietrichGebert/ponytail
+```
+```
+/plugin install ponytail@ponytail
+```
+```
+/plugin marketplace add mksglu/context-mode
+```
+```
+/plugin install context-mode@context-mode
+```
+
+（1 コマンドずつ送る。入れたら `/reload-plugins`、確認は `/context-mode:ctx-doctor`）
+
+**Codex（`jev-codex`）**: Codex はリポジトリ設定から自動では入らないので、各自で 1 回だけ実行:
+
+```bash
+codex plugin marketplace add DietrichGebert/ponytail
+codex plugin add ponytail@ponytail
+codex plugin marketplace add mksglu/context-mode   # Codex のプラグイン画面から context-mode をインストール
+```
+
+`~/.codex/config.toml` でプラグインのフックを有効化:
+
+```toml
+[features]
+plugin_hooks = true
+hooks = true
+```
+
+その後 `codex` で `/hooks` を開いて両プラグインのフックを信頼し、新しいスレッドを開始。
+手順は変わることがあるので、うまくいかなければ各プラグインの README を参照してください。
+Ponytail の方針は `AGENTS.md` にも要約しているので、プラグインが無くても同じルールで動きます。
+
 ## 分担の流れ
 
 1. [docs/TASKS.md](TASKS.md) から 1 つ選び、ブランチを切る（例: `feat/growth-chart`）

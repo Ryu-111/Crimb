@@ -5,14 +5,20 @@ import type { Limb, LimbMove, PoseTrack, Segment } from './types'
 export const STILL_SPEED = 0.35
 /** 静止とみなす最短時間 (秒) */
 export const MIN_STILL_SEC = 0.4
-/** 手足が「動いた」とみなす速さ (胴長/秒) と移動量 (胴長) */
-export const LIMB_SPEED = 1.0
+/** 手足が「動いた」とみなす移動量 (胴長) */
 export const LIMB_MIN_DISPLACEMENT = 0.3
-/** 手足が「置かれている」とみなす速さ (胴長/秒) と最短時間 (秒) */
-export const LIMB_STILL_SPEED = 0.5
-export const LIMB_MIN_HOLD_SEC = 0.3
-/** 手足はこの visibility から使う。背面撮影では手首が体や壁に隠れて低めに出るため、体幹（0.5）より緩くする */
-export const LIMB_VISIBILITY = 0.3
+/**
+ * 手足が「置かれている」: 前後 LIMB_STILL_WINDOW 秒の点がすべて平均位置から LIMB_STILL_RADIUS (胴長) 以内。
+ * フレーム間の速さで判定すると、遠くから撮った動画では検出のブレだけで静止が途切れる
+ */
+export const LIMB_STILL_WINDOW = 0.3
+export const LIMB_STILL_RADIUS = 0.25
+export const LIMB_MIN_HOLD_SEC = 0.2
+/**
+ * 手足はこの visibility から使う。背面撮影では手首が体や壁に隠れて低く出る。
+ * 低い値の点はブレるが、上の「一定範囲に留まる」条件を満たさない限り数えないので緩くしてよい
+ */
+export const LIMB_VISIBILITY = 0.2
 
 /** 各フレームの点の速さ (単位/秒)。点が無いフレームは NaN。 */
 export function speeds(points: (Vec | null)[], times: number[]): number[] {
@@ -92,19 +98,25 @@ export function detectLimbMoves(track: PoseTrack, torso: number): LimbMove[] {
       const p = poseAt(f, track)
       return p && p.vis(idx) >= LIMB_VISIBILITY ? p.get(idx) : null
     })
-    const sp = speeds(pts, times).map((s) => s / torso)
-    const holds = runIndices(sp.map((s) => !Number.isNaN(s) && s < LIMB_STILL_SPEED)).filter(
-      ([a, b]) => times[b]! - times[a]! >= LIMB_MIN_HOLD_SEC,
-    )
-    const center = ([a, b]: [number, number]) => {
-      const ps = pts.slice(a, b + 1).filter((p) => p !== null)
-      return { x: ps.reduce((s, p) => s + p.x, 0) / ps.length, y: ps.reduce((s, p) => s + p.y, 0) / ps.length }
-    }
+    const center = (ps: Vec[]) => ({
+      x: ps.reduce((s, p) => s + p.x, 0) / ps.length,
+      y: ps.reduce((s, p) => s + p.y, 0) / ps.length,
+    })
+    const still = pts.map((p, i) => {
+      if (!p) return false
+      const near = pts.filter((q, k): q is Vec => q !== null && Math.abs(times[k]! - times[i]!) <= LIMB_STILL_WINDOW)
+      if (near.length < 3) return false
+      const c = center(near)
+      return near.every((q) => Math.hypot(q.x - c.x, q.y - c.y) / torso <= LIMB_STILL_RADIUS)
+    })
+    const holds = runIndices(still)
+      .filter(([a, b]) => times[b]! - times[a]! >= LIMB_MIN_HOLD_SEC)
+      .map(([a, b]): [number, number, Vec] => [a, b, center(pts.slice(a, b + 1).filter((p) => p !== null))])
     for (let i = 1; i < holds.length; i++) {
       const prev = holds[i - 1]!
       const next = holds[i]!
-      const a = center(prev)
-      const b = center(next)
+      const a = prev[2]
+      const b = next[2]
       if (Math.hypot(b.x - a.x, b.y - a.y) / torso >= LIMB_MIN_DISPLACEMENT) {
         out.push({ start: times[prev[1]]!, end: times[next[0]]!, limb })
       }

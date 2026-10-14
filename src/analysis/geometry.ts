@@ -134,3 +134,25 @@ export function fullBodyVisible(frames: Frame[]): boolean {
   const ok = frames.filter((f) => f.lm && bodyInFrame(f.lm)).length
   return frames.length > 0 && ok * 2 >= frames.length
 }
+
+/**
+ * 体の一部が画面外に出たとき、MediaPipe は見えていない関節を見えている部位の上に置くことがある
+ * （上半身が画面の上に切れると、肩が脚の上に来る・胴が潰れる・腰が肩より上になる）。
+ * そうした体型として成り立たないフレームを「検出なし」にする。実動画（abhi 17〜21 秒）で確認。
+ */
+export function dropImplausiblePoses(track: PoseTrack): PoseTrack {
+  const torso = torsoLength(track)
+  return {
+    ...track,
+    frames: track.frames.map((f) => {
+      const p = poseAt(f, track)
+      return p && isImplausible(p, torso) ? { t: f.t, lm: null } : f
+    }),
+  }
+}
+
+/** 胴長が基準 (torso) の半分未満・2 倍超、または腰が肩より上にある */
+export function isImplausible(p: Pose, torso: number): boolean {
+  const r = p.torso / torso
+  return r < 0.5 || r > 2 || p.hipMid.y < p.shoulderMid.y - 0.25 * torso
+}

@@ -2,8 +2,8 @@
   "bodyWarning": false,
   "metrics": {
     "detectionRate": [0.9, 1],
-    "handMoves": [2, 12],
-    "footMoves": [2, 12]
+    "handMoves": [8, 18],
+    "footMoves": [6, 16]
   },
   "adviceExcludes": ["capture"]
 }

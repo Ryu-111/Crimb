@@ -1,5 +1,6 @@
-import { fullBodyVisible } from '../analysis/geometry'
-import type { Frame, PoseTrack } from '../analysis/types'
+import { dropImplausiblePoses, fullBodyVisible, isImplausible, poseAt, torsoLength } from '../analysis/geometry'
+import type { Frame, Landmark, PoseTrack } from '../analysis/types'
+import { cropBox, uncrop } from './crop'
 import { getLandmarker } from './landmarker'
 import { cleanFrames } from './smoothing'
 
@@ -83,14 +84,80 @@ export async function extractPoseTrack(video: HTMLVideoElement, opts: ExtractOpt
     frames.push({ t, lm: detect(landmarker, video) })
     opts.onProgress?.(i / total)
   }
-  return { fps: SAMPLE_FPS, width: video.videoWidth, height: video.videoHeight, frames: cleanFrames(frames) }
+  const track: PoseTrack = { fps: SAMPLE_FPS, width: video.videoWidth, height: video.videoHeight, frames }
+  return { ...track, frames: cleanFrames(await redetect(landmarker, video, track, opts.signal)) }
 }
+
+/** 検出し直すのは、正しい姿勢からこの秒数以内のフレームまで（戻した姿勢も次の手がかりにする） */
+export const REDETECT_MAX_GAP_SEC = 1
+/** 続けてこの回数失敗したら、その先は画面外とみなして諦める（1 回の検出は通常の約 2 倍かかる） */
+export const REDETECT_MAX_MISSES = 3
+
+/**
+ * 検出なし・ありえない姿勢のフレームを、近くの正しい姿勢の周りを切り抜いて検出し直す。
+ * VIDEO モードは直前の位置を追跡するので、壁の模様を人と誤検出すると数秒間抜け出せない。
+ * 切り抜きで人のいる位置を教えることで、追跡の初期値の代わりにする。前向き → 後ろ向きの順に広げる
+ */
+async function redetect(landmarker: Landmarker, video: HTMLVideoElement, track: PoseTrack, signal?: AbortSignal): Promise<Frame[]> {
+  const torso = torsoLength(dropImplausiblePoses(track))
+  const frames = track.frames.map((f) => ({ ...f }))
+  const good = frames.map((f) => {
+    const p = poseAt(f, track)
+    return p !== null && !isImplausible(p, torso)
+  })
+  if (good.every(Boolean) || !good.some(Boolean)) return frames
+  const canvas = document.createElement('canvas')
+  const ctx = canvas.getContext('2d')
+  if (!ctx) return frames
+  await landmarker.setOptions({ runningMode: 'IMAGE' })
+  try {
+    for (const dir of [1, -1]) {
+      let ref = -1
+      let misses = 0
+      for (let k = 0; k < frames.length; k++) {
+        if (signal?.aborted) throw new DOMException('解析を中止しました', 'AbortError')
+        const i = dir === 1 ? k : frames.length - 1 - k
+        if (good[i]) {
+          ref = i
+          misses = 0
+          continue
+        }
+        if (ref < 0 || misses >= REDETECT_MAX_MISSES || Math.abs(frames[i]!.t - frames[ref]!.t) > REDETECT_MAX_GAP_SEC) continue
+        misses++
+        const box = cropBox(frames[ref]!.lm!, track.width, track.height)
+        await seek(video, frames[i]!.t)
+        const size = Math.min(512, Math.round(box.size))
+        canvas.width = size
+        canvas.height = size
+        ctx.drawImage(video, box.x, box.y, box.size, box.size, 0, 0, size, size)
+        const lm = landmarker.detect(canvas).landmarks[0]
+        if (!lm) continue
+        const frame = { t: frames[i]!.t, lm: toLandmarks(uncrop(toLandmarks(lm), box, track.width, track.height)) }
+        const p = poseAt(frame, track)
+        if (!p || isImplausible(p, torso)) continue
+        frames[i] = frame
+        good[i] = true
+        ref = i
+        misses = 0
+      }
+    }
+  } finally {
+    await landmarker.setOptions({ runningMode: 'VIDEO' })
+  }
+  return frames
+}
+
+type Landmarker = Awaited<ReturnType<typeof getLandmarker>>
 
 const round = (v: number) => Math.round(v * 1000) / 1000
 
-function detect(landmarker: Awaited<ReturnType<typeof getLandmarker>>, video: HTMLVideoElement): Frame['lm'] {
+function toLandmarks(lm: { x: number; y: number; visibility?: number; v?: number }[]): Landmark[] {
+  return lm.map((p) => ({ x: round(p.x), y: round(p.y), v: round(p.v ?? p.visibility ?? 1) }))
+}
+
+function detect(landmarker: Landmarker, video: HTMLVideoElement): Frame['lm'] {
   const lm = landmarker.detectForVideo(video, clock).landmarks[0]
-  return lm ? lm.map((p) => ({ x: round(p.x), y: round(p.y), v: round(p.visibility ?? 1) })) : null
+  return lm ? toLandmarks(lm) : null
 }
 
 /** 動画全体から 6 フレームを推定し、全身が画面に収まっているかを返す */

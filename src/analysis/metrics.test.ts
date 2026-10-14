@@ -35,6 +35,14 @@ describe('analyze', () => {
     expect(advice[0]!.t).toBe(metrics.fallAt)
   })
 
+  it('detects a fall when the first frames show a broken pose high in the frame', () => {
+    // 画面に入ってくる途中の姿勢が、実際より高い位置に出ることがある（実動画 garrett の冒頭）
+    const track = climb({ fall: true })
+    const first = track.frames[0]!.lm!.map((p) => ({ ...p, y: p.y - 0.5 }))
+    const { metrics } = analyze({ ...track, frames: [{ t: -0.1, lm: first }, ...track.frames] })
+    expect(metrics.fallAt).not.toBeNull()
+  })
+
   it('detects an early fall even when the clip keeps running on the mat', () => {
     const track = climb({ moves: 3, fall: true })
     const last = track.frames[track.frames.length - 1]!

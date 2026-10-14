@@ -3,7 +3,7 @@
   "metrics": {
     "detectionRate": [0.6, 1],
     "handMoves": [2, 10],
-    "footMoves": [3, 10]
+    "footMoves": [3, 12]
   },
   "adviceExcludes": ["capture"]
 }

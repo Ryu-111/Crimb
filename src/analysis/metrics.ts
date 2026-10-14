@@ -39,13 +39,15 @@ function isShaking(p: Pose, torso: number): boolean {
 export function detectFall(track: PoseTrack, torso: number): number | null {
   const com = comPoints(track)
   const frames = track.frames
-  // 飛び乗り・スタートの座り込みを除くため、重心が開始位置より胴長 1 つ分上がってから判定
-  const start = com.find((c) => c !== null)
+  // 飛び乗り・スタートの座り込みを除くため、重心がそれまでの最も低い位置より胴長 1 つ分上がってから判定
+  // （最初のフレームを基準にすると、画面に入ってくる途中の崩れた姿勢が高く出たときに判定が始まらない）
+  let lowest = -Infinity
   let started = false
   for (let i = 0; i < frames.length; i++) {
     const a = com[i]
-    if (!a || !start) continue
-    if (!started && (start.y - a.y) / torso >= 1) started = true
+    if (!a) continue
+    lowest = Math.max(lowest, a.y)
+    if (!started && (lowest - a.y) / torso >= 1) started = true
     if (!started) continue
     // 画面の上端に体が掛かっている場面からの「落下」は、上半身が画面外に出た検出の乱れであることが多い
     if (a.y - torso < 0.05) continue

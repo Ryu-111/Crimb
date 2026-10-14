@@ -146,10 +146,13 @@ export function dropImplausiblePoses(track: PoseTrack): PoseTrack {
     ...track,
     frames: track.frames.map((f) => {
       const p = poseAt(f, track)
-      if (!p) return f
-      const r = p.torso / torso
-      const inverted = p.hipMid.y < p.shoulderMid.y - 0.25 * torso
-      return r < 0.5 || r > 2 || inverted ? { t: f.t, lm: null } : f
+      return p && isImplausible(p, torso) ? { t: f.t, lm: null } : f
     }),
   }
+}
+
+/** 胴長が基準 (torso) の半分未満・2 倍超、または腰が肩より上にある */
+export function isImplausible(p: Pose, torso: number): boolean {
+  const r = p.torso / torso
+  return r < 0.5 || r > 2 || p.hipMid.y < p.shoulderMid.y - 0.25 * torso
 }

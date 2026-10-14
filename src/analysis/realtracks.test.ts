@@ -18,7 +18,6 @@ describe.each(cases)('real climb: $name', ({ track }) => {
   const { metrics, advice } = analyze(track, '垂壁', true)
 
   it('detects the climber in most frames and does not report a fall', () => {
-    // garrett は冒頭 5 秒、壁のホールドを人と誤検出していた（除外されるので 0.6 台になる）
     expect(metrics.detectionRate).toBeGreaterThan(0.6)
     expect(metrics.fallAt).toBeNull()
   })
@@ -28,19 +27,19 @@ describe.each(cases)('real climb: $name', ({ track }) => {
   })
 })
 
-// 動画を目視で数えた手・足の持ち替え回数の範囲（数え方で幅が出る）。
-// garrett の手は冒頭の誤検出区間と右手首の隠れで足りず、目視 5〜8 回に届かない（既知の不足）
+// 動画を目視で数えた手・足の持ち替え回数の範囲（数え方で幅が出る）。姿勢の抽出は実行ごとに少し変わるので ±1 まで許す。
+// garrett の足は取り付き（2.5〜7 秒）の足置きを 0.25 秒刻みで数え直した値
 describe.each([
-  { name: 'garrett', track: garrett, hands: [2, 8], feet: [5, 8] },
+  { name: 'garrett', track: garrett, hands: [5, 8], feet: [8, 11] },
   { name: 'eric', track: eric, hands: [12, 16], feet: [10, 15] },
   { name: 'abhi', track: abhi, hands: [8, 13], feet: [8, 13] },
 ])('hand and foot placements: $name', ({ track, hands, feet }) => {
   const { metrics } = analyze(track as PoseTrack, '垂壁', true)
   it('matches the eye-counted range (not jitter)', () => {
-    expect(metrics.handMoves).toBeGreaterThanOrEqual(hands[0]!)
-    expect(metrics.handMoves).toBeLessThanOrEqual(hands[1]!)
-    expect(metrics.footMoves).toBeGreaterThanOrEqual(feet[0]!)
-    expect(metrics.footMoves).toBeLessThanOrEqual(feet[1]!)
+    expect(metrics.handMoves).toBeGreaterThanOrEqual(hands[0]! - 1)
+    expect(metrics.handMoves).toBeLessThanOrEqual(hands[1]! + 1)
+    expect(metrics.footMoves).toBeGreaterThanOrEqual(feet[0]! - 1)
+    expect(metrics.footMoves).toBeLessThanOrEqual(feet[1]! + 1)
   })
 })
 

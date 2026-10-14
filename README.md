@@ -2,6 +2,12 @@
 
 ボルダリングの登りをスマホで撮影し、**ムーブを解析して改善案を出し、成長を記録する** PWA / Android アプリ。
 
+**▶ アプリを開く: https://ryu-111.github.io/Crimb/** （スマホで開いて「ホーム画面に追加」）
+Android アプリ（APK）は [Actions の Android APK](https://github.com/Ryu-111/Crimb/actions/workflows/android.yml) の最新の成功した実行の Artifacts からダウンロードできます。
+
+[![Deploy](https://github.com/Ryu-111/Crimb/actions/workflows/deploy.yml/badge.svg)](https://github.com/Ryu-111/Crimb/actions/workflows/deploy.yml)
+[![CI](https://github.com/Ryu-111/Crimb/actions/workflows/ci.yml/badge.svg)](https://github.com/Ryu-111/Crimb/actions/workflows/ci.yml)
+
 - 📱 スマホ前提（iPhone / Android のブラウザでホーム画面に追加、または Android APK）
 - 🔒 姿勢推定（MediaPipe Pose）は **端末内で実行**。動画は外部に送信しない
 - 💡 指標（ストレートアーム率・足/手の動き比・静止時間・重心の効率・横ブレ・落下地点など）からルールベースで改善案

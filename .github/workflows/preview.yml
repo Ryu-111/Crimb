@@ -15,8 +15,9 @@ concurrency:
 
 jobs:
   preview:
-    # フォークからの PR は書き込み権限が無いため対象外
-    if: github.event.pull_request.head.repo.full_name == github.repository
+    # フォークからの PR は書き込み権限が無いため対象外。Dependabot の PR は数が多く、
+    # Pages のビルドが積み重なって本番デプロイの反映が遅れるのでプレビューを作らない
+    if: github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.user.login != 'dependabot[bot]'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

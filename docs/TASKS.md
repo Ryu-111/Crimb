@@ -26,6 +26,8 @@ PR を出すと CI / E2E / Lighthouse / プレビュー / APK が自動で走る
 - [x] **テスト拡充**: `segments.ts` の境界値、`smoothing.ts` の長い欠損、`rules.ts` の各しきい値ちょうどのケース
 - [x] **E2E 追加**: 全削除、成長グラフ表示、インポート（重複スキップ）・エクスポート（`e2e/backup.spec.ts`）
 
+- [ ] **APK 版のバックアップ書き出し**: Android WebView は blob のダウンロード不可。`@capacitor/filesystem` + `@capacitor/share` で保存/共有（今は「アプリ版では未対応」と表示）
+
 ## Claude 向け
 
 - [x] **タイムライン UI**: 動画の下に静止/移動区間と手足の移動イベント（`Analysis.stills / moves / limbMoves`）を帯で表示、タップでシーク

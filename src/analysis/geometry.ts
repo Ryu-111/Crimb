@@ -9,12 +9,16 @@ export const LM = {
   rightElbow: 14,
   leftWrist: 15,
   rightWrist: 16,
+  leftIndex: 19,
+  rightIndex: 20,
   leftHip: 23,
   rightHip: 24,
   leftKnee: 25,
   rightKnee: 26,
   leftAnkle: 27,
   rightAnkle: 28,
+  leftFootIndex: 31,
+  rightFootIndex: 32,
 } as const
 
 export const MIN_VISIBILITY = 0.5

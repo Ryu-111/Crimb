@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
 import { analyze } from '../analysis/metrics'
-import { MAX_DURATION_SEC, captureThumbnail, checkFullBody, extractPoseTrack, loadVideo } from '../pose/extractFrames'
+import { MAX_DURATION_SEC, checkFullBody, extractPoseTrack } from '../pose/extractFrames'
+import { captureThumbnail, loadVideo } from '../pose/video'
 import { useDraft } from '../lib/draft'
 
 export default function Analyze() {

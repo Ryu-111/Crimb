@@ -26,6 +26,11 @@ test('analyze a video, save it and see it in history', async ({ page }, info) =>
   // 人が映っていない動画なので「撮影条件」の改善案が出る
   await expect(page.getByText('撮影条件を見直しましょう')).toBeVisible({ timeout: 180_000 })
   await page.screenshot({ path: info.outputPath('result.png'), fullPage: true })
+
+  // 課題の 3D 表示: 壁の写真をタップすると、ホールドが見つかれば 3D、見つからなければ案内が出る
+  await expect(page.getByRole('heading', { name: '課題を 3D で見る' })).toBeVisible()
+  await page.getByTestId('route-frame').click({ timeout: 30_000 })
+  await expect(page.getByRole('img', { name: /課題の 3D 表示/ }).or(page.getByRole('alert'))).toBeVisible({ timeout: 30_000 })
   await page.getByRole('button', { name: '記録を保存' }).click()
   await expect(page).toHaveURL(/#\/session\/\d+/)
 

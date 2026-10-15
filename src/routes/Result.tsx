@@ -7,6 +7,7 @@ import AdviceList from '../components/AdviceList'
 import MetaFields from '../components/MetaFields'
 import MetricGrid from '../components/MetricGrid'
 import MoveList from '../components/MoveList'
+import RouteSection from '../components/RouteSection'
 import Timeline from '../components/Timeline'
 import VideoOverlay, { type VideoOverlayHandle } from '../components/VideoOverlay'
 import { db, deleteSession, previousSession, saveSession, type SessionMeta } from '../db/db'
@@ -50,6 +51,12 @@ function ResultView({ meta, createdAt, track, analysis, videoUrl, children }: Vi
         <div>
           <h2 className="mb-2 font-semibold">ムーブごとの振り返り</h2>
           <MoveList analysis={analysis} onSeek={seek} />
+        </div>
+      )}
+      {videoUrl && (
+        <div>
+          <h2 className="mb-2 font-semibold">課題を 3D で見る</h2>
+          <RouteSection videoUrl={videoUrl} track={track} wallAngle={meta.wallAngle} onSeek={seek} />
         </div>
       )}
       <div>

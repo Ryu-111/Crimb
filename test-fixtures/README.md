@@ -26,6 +26,7 @@
 | ファイル | 内容 |
 |---|---|
 | `garrett.webm`, `eric.webm` | ジムでのボルダリング（背面から撮影・手持ちで追従）。CI の解析回帰テスト用 |
+| `garrett.pink-holds.json` | garrett の最初のコマで下の大きいピンクをタップしたときに拾われるホールド（`src/analysis/route.test.ts` で使用） |
 | `tracks/*.json` | 上の動画から本アプリで抽出した姿勢時系列。`src/analysis/realtracks.test.ts`（ブラウザ不要の単体テスト）で使用 |
 
 出典: [imix8/Ascend](https://github.com/imix8/Ascend) の `assets/*.mp4`（MIT License, Copyright (c) 2024 imix8）。

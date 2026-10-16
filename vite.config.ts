@@ -44,6 +44,17 @@ export default defineConfig({
             handler: 'CacheFirst',
             options: { cacheName: 'mediapipe-runtime' },
           },
+          // 壁の凹凸推定（押したときだけ使う）のモデルと実行環境。大きいのでプリキャッシュせず、初回に取得したものを使い回す
+          {
+            urlPattern: ({ url }) => url.hostname === 'huggingface.co' && url.pathname.endsWith('.onnx'),
+            handler: 'CacheFirst',
+            options: { cacheName: 'depth-model', cacheableResponse: { statuses: [0, 200] } },
+          },
+          {
+            urlPattern: ({ url }) => url.pathname.includes('/assets/ort-') && url.pathname.endsWith('.wasm'),
+            handler: 'CacheFirst',
+            options: { cacheName: 'depth-runtime' },
+          },
         ],
       },
     }),

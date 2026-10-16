@@ -27,7 +27,7 @@ src/
     metrics.ts    analyze(track) → Analysis（指標の算出、落下検出）
     rules.ts      THRESHOLDS と buildAdvice（改善案。しきい値はここに集約）
     synthetic.ts  テスト用の合成クライマー climb({ bend, useFeet, pause, fall })
-  pose/       MediaPipe（landmarker.ts）、動画→時系列（extractFrames.ts）、平滑化（smoothing.ts）
+  pose/       MediaPipe（landmarker.ts）、動画→時系列（extractFrames.ts）、平滑化（smoothing.ts）、壁の奥行き推定（depth.ts + depthWorker.ts）
   db/db.ts    Dexie: sessions / tracks / videos（姿勢時系列と動画は別テーブル）
   routes/     画面（HashRouter）。Home / NewSession / Analyze / Result / Problem（同一課題の比較） / Growth / Settings
   components/ VideoOverlay（骨格描画）, Timeline, MoveList, MetaFields（課題情報の入力・GRADES/ANGLES）, MetricGrid, AdviceList, Thumb

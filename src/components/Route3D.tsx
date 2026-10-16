@@ -3,6 +3,7 @@ import * as THREE from 'three'
 import type { Contact, Hold, Hsv } from '../analysis/route'
 import { LM, segmentCom } from '../analysis/geometry'
 import type { PoseTrack } from '../analysis/types'
+import { reliefAt, type Relief } from '../analysis/relief'
 
 export interface Route3DProps {
   /** 壁の写真（動画の 1 コマ） */
@@ -17,6 +18,8 @@ export interface Route3DProps {
   color: Hsv
   /** 重ねて表示する同じ課題の別のトライ */
   ghost?: Ghost
+  /** 写真 1 枚から推定した壁の凹凸。あれば壁を凹凸のある面にし、ホールドや骨格をその上に置く */
+  relief?: Relief
 }
 
 export interface Ghost {
@@ -80,7 +83,7 @@ function numberSprite(text: string, ring: string): THREE.Sprite {
  * 課題のホールドを壁の写真の上に立体で置き、触れた順の番号・手足の経路・骨格を重ねる。
  * ホールドの位置は写真上の 2 次元の位置で、奥行きは大きさから付けた見た目上のもの（ハリボテの凹凸は出ない）
  */
-export default function Route3D({ image, holds, contacts, order, track, tilt, color, ghost }: Route3DProps) {
+export default function Route3D({ image, holds, contacts, order, track, tilt, color, ghost, relief }: Route3DProps) {
   const host = useRef<HTMLDivElement>(null)
   const setTime = useRef<(t: number) => void>(() => {})
   const layers = useRef<{ com?: THREE.Object3D; flow?: THREE.Object3D; draw?: () => void }>({})
@@ -97,7 +100,8 @@ export default function Route3D({ image, holds, contacts, order, track, tilt, co
     const HOLD = `#${new THREE.Color().setHSL(color.h / 360, 0.85, 0.6).getHexString()}`
     const W = 1
     const H = image.height / image.width
-    const at = (x: number, y: number, z = 0) => new THREE.Vector3((x - 0.5) * W, (0.5 - y) * H, z)
+    const surface = (x: number, y: number) => (relief ? reliefAt(relief, x, y) : 0)
+    const at = (x: number, y: number, z = 0) => new THREE.Vector3((x - 0.5) * W, (0.5 - y) * H, z + surface(x, y))
 
     const renderer = new THREE.WebGLRenderer({ antialias: true })
     renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1))
@@ -121,7 +125,14 @@ export default function Route3D({ image, holds, contacts, order, track, tilt, co
     pivot.add(wallGroup)
     const wallTex = new THREE.CanvasTexture(image)
     wallTex.colorSpace = THREE.SRGBColorSpace
-    wallGroup.add(new THREE.Mesh(new THREE.PlaneGeometry(W, H), new THREE.MeshStandardMaterial({ map: wallTex, roughness: 1 })))
+    // 凹凸があれば、格子の頂点を手前に押し出した面にする（PlaneGeometry の頂点は上の行から並ぶ）
+    const wallGeo = relief ? new THREE.PlaneGeometry(W, H, relief.cols - 1, relief.rows - 1) : new THREE.PlaneGeometry(W, H)
+    if (relief) {
+      const pos = wallGeo.attributes.position!
+      for (let k = 0; k < pos.count; k++) pos.setZ(k, relief.z[k]!)
+      wallGeo.computeVertexNormals()
+    }
+    wallGroup.add(new THREE.Mesh(wallGeo, new THREE.MeshStandardMaterial({ map: wallTex, roughness: 1 })))
 
     const used = new Set(order)
     const holdMats = holds.map((h, i) => {
@@ -336,16 +347,16 @@ export default function Route3D({ image, holds, contacts, order, track, tilt, co
       })
       el.removeChild(canvas)
     }
-  }, [image, holds, contacts, order, track, tilt, color, ghost])
+  }, [image, holds, contacts, order, track, tilt, color, ghost, relief])
 
-  useEffect(() => setTime.current(t), [t, ghost])
+  useEffect(() => setTime.current(t), [t, ghost, relief])
 
   useEffect(() => {
     const l = layers.current
     if (l.com) l.com.visible = showCom
     if (l.flow) l.flow.visible = showFlow
     l.draw?.()
-  }, [showCom, showFlow, image, holds, contacts, order, track, tilt, color, ghost])
+  }, [showCom, showFlow, image, holds, contacts, order, track, tilt, color, ghost, relief])
 
   useEffect(() => {
     if (!playing) return

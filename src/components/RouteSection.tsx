@@ -2,6 +2,7 @@ import { lazy, Suspense, useEffect, useMemo, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { alignHolds, climbStart, findHolds, holdContacts, pickColor, routeOrder, wallTilt } from '../analysis/route'
 import type { PoseTrack } from '../analysis/types'
+import type { Relief } from '../analysis/relief'
 import { grabFrame, loadVideo } from '../pose/video'
 import { db, type SavedRoute } from '../db/db'
 import { formatDate } from '../lib/format'
@@ -52,6 +53,24 @@ export default function RouteSection({ videoUrl, track, wallAngle, onSeek, route
   )
   const [ghostId, setGhostId] = useState<number>()
   const ghostTrack = useLiveQuery(async () => (ghostId ? (await db.tracks.get(ghostId))?.track : undefined), [ghostId])
+  const [relief, setRelief] = useState<Relief>()
+  const [depth, setDepth] = useState<{ progress?: number; loaded?: number; error?: string }>()
+
+  // 壁の凹凸の推定（端末内）。モデルは大きいので押したときだけ読み込む
+  const estimate = async () => {
+    if (!frame) return
+    setDepth({ progress: 0 })
+    try {
+      const { estimateRelief } = await import('../pose/depth')
+      // progress: 0〜1 はダウンロードの割合（全体が分からなければ undefined）、1 で推定中
+      const r = await estimateRelief(frame.canvas, (loaded, total) => setDepth({ progress: total ? loaded / total : undefined, loaded }))
+      ;(globalThis as unknown as { __crimbLastRelief?: Relief }).__crimbLastRelief = r
+      setRelief(r)
+      setDepth(undefined)
+    } catch (e) {
+      setDepth({ error: `凹凸を推定できませんでした: ${(e as Error).message}` })
+    }
+  }
 
   useEffect(() => {
     const live = { current: true }
@@ -128,8 +147,34 @@ export default function RouteSection({ videoUrl, track, wallAngle, onSeek, route
               track={track}
               tilt={wallTilt(wallAngle)}
               ghost={typeof ghost === 'object' ? ghost : undefined}
+              relief={relief}
             />
           </Suspense>
+          {!relief && (
+            <div className="space-y-1">
+              <button
+                className="min-h-11 w-full rounded-lg bg-slate-800 py-2 text-sm disabled:opacity-60"
+                onClick={estimate}
+                disabled={depth !== undefined && !depth.error}
+              >
+                {depth && !depth.error
+                  ? depth.progress === 1
+                    ? '壁の凹凸を推定中…'
+                    : depth.progress !== undefined
+                      ? `モデルを読み込み中… ${Math.round(depth.progress * 100)}%`
+                      : `モデルを読み込み中… ${((depth.loaded ?? 0) / 1e6).toFixed(1)}MB`
+                  : '壁の凹凸を推定する'}
+              </button>
+              <p className="text-xs text-slate-400">
+                写真 1 枚から奥行きを推定して、ハリボテやホールドの出っ張りを立体にします。初回だけ約 27MB のモデルをダウンロードします（写真は端末の外に送りません）。
+              </p>
+              {depth?.error && (
+                <p role="alert" className="text-sm text-rose-400">
+                  {depth.error}
+                </p>
+              )}
+            </div>
+          )}
           <p className="text-xs text-slate-400">
             同じ色のホールド {holds.length} 個のうち {order.length} 個に触れました。ドラッグで回転、ピンチで拡大できます。カメラを固定して撮った動画で正確になります。
           </p>

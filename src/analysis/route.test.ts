@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { findHolds, holdContacts, pickColor, rgbToHsv, routeOrder, wallTilt, type Hold } from './route'
+import { alignHolds, findHolds, holdContacts, pickColor, rgbToHsv, routeOrder, wallTilt, type Hold } from './route'
 import type { Frame, Landmark, PoseTrack } from './types'
 
 /** 背景がベージュで、ピンクの塊と青の塊がある画像 */
@@ -104,5 +104,26 @@ describe('real climb: garrett (pink problem)', () => {
     expect(c[c.length - 1]!.hold).toBe(top)
     expect(c.find((x) => x.limb.endsWith('足'))!.hold).toBe(bottom)
     expect(order).toHaveLength(7)
+  })
+})
+
+describe('aligning two attempts', () => {
+  const base: Hold[] = [
+    [0.2, 0.2], [0.7, 0.25], [0.4, 0.5], [0.6, 0.7], [0.3, 0.85],
+  ].map(([x, y]) => ({ x: x!, y: y!, w: 0.05, h: 0.03, area: 0.001 }))
+
+  it('recovers zoom and shift between two videos shot from different spots', () => {
+    // 2 本目は少し寄って（1.2 倍）、右下にずれて撮った。1 本目にしかないホールドもある
+    const other = base.slice(0, 4).map((h) => ({ ...h, x: (h.x - 0.1) * 1.2, y: ((h.y * 2 - 0.2) * 1.2) / 2 }))
+    const t = alignHolds(other, [...base, { x: 0.9, y: 0.1, w: 0.05, h: 0.03, area: 0.001 }], 2, 2)!
+    expect(t.matched).toBe(4)
+    expect(t.s).toBeCloseTo(1 / 1.2, 2)
+    const p = other[2]!
+    expect(t.s * p.x + t.tx).toBeCloseTo(base[2]!.x, 2)
+    expect(t.s * p.y * 2 + t.ty).toBeCloseTo(base[2]!.y * 2, 2)
+  })
+
+  it('needs at least three holds on each side', () => {
+    expect(alignHolds(base.slice(0, 2), base, 2, 2)).toBeNull()
   })
 })

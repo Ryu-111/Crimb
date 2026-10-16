@@ -198,3 +198,60 @@ export function wallTilt(angle: string | undefined): number {
   const deg = Number.parseInt(angle, 10)
   return Number.isFinite(deg) ? Math.min(60, Math.max(-20, deg - 90)) : 0
 }
+
+/** 写真を重ねるための変換（拡大率と平行移動）。座標は横幅を 1 とした単位（y は縦横比を掛けたもの） */
+export interface Similarity {
+  s: number
+  tx: number
+  ty: number
+  /** 対応が取れたホールドの数 */
+  matched: number
+}
+
+/** 2 つの写真から拾った同じ課題のホールドを、最も近いもの同士で対応づけて、from を to に重ねる拡大率と平行移動を求める（ICP） */
+export function alignHolds(from: Hold[], to: Hold[], aspectFrom: number, aspectTo: number): Similarity | null {
+  if (from.length < 3 || to.length < 3) return null
+  const a = from.map((h) => ({ x: h.x, y: h.y * aspectFrom }))
+  const b = to.map((h) => ({ x: h.x, y: h.y * aspectTo }))
+  const mean = (ps: { x: number; y: number }[]) => ({
+    x: ps.reduce((s, p) => s + p.x, 0) / ps.length,
+    y: ps.reduce((s, p) => s + p.y, 0) / ps.length,
+  })
+  const spread = (ps: { x: number; y: number }[], m: { x: number; y: number }) =>
+    Math.sqrt(ps.reduce((s, p) => s + (p.x - m.x) ** 2 + (p.y - m.y) ** 2, 0) / ps.length)
+  // 初期値: 重心と広がりをそろえる
+  const ma = mean(a)
+  const mb = mean(b)
+  let s = spread(b, mb) / (spread(a, ma) || 1)
+  let tx = mb.x - s * ma.x
+  let ty = mb.y - s * ma.y
+  let matched = 0
+  for (let iter = 0; iter < 20; iter++) {
+    const moved = a.map((p) => ({ x: s * p.x + tx, y: s * p.y + ty }))
+    const dists = moved.map((p) => Math.min(...b.map((q) => Math.hypot(p.x - q.x, p.y - q.y))))
+    // 遠すぎる組（片方にしかないホールド）は外す
+    const limit = Math.max(0.03, [...dists].sort((x, y) => x - y)[Math.floor(dists.length * 0.7)]! * 1.5)
+    const pairs = moved
+      .map((p, i) => {
+        const j = b.reduce((best, q, k) => (Math.hypot(p.x - q.x, p.y - q.y) < Math.hypot(p.x - b[best]!.x, p.y - b[best]!.y) ? k : best), 0)
+        return { p: a[i]!, q: b[j]!, d: dists[i]! }
+      })
+      .filter((x) => x.d <= limit)
+    if (pairs.length < 3) return null
+    matched = pairs.length
+    const pa = mean(pairs.map((x) => x.p))
+    const pb = mean(pairs.map((x) => x.q))
+    const num = pairs.reduce((acc, x) => acc + (x.p.x - pa.x) * (x.q.x - pb.x) + (x.p.y - pa.y) * (x.q.y - pb.y), 0)
+    const den = pairs.reduce((acc, x) => acc + (x.p.x - pa.x) ** 2 + (x.p.y - pa.y) ** 2, 0)
+    if (den === 0) return null
+    s = num / den
+    tx = pb.x - s * pa.x
+    ty = pb.y - s * pa.y
+  }
+  return { s, tx, ty, matched }
+}
+
+/** 登り始め（課題のホールドに最初に触れた時刻）。触れていなければ 0 */
+export function climbStart(contacts: Contact[]): number {
+  return contacts.length ? Math.min(...contacts.map((c) => c.t)) : 0
+}

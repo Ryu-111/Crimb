@@ -5,6 +5,7 @@ import { MAX_DURATION_SEC, checkFullBody, extractPoseTrack } from '../pose/extra
 import { CAMERA_SHIFT_LIMIT } from '../analysis/camera'
 import { cameraShift, captureThumbnail, loadVideo } from '../pose/video'
 import { useDraft } from '../lib/draft'
+import { formatEta } from '../lib/format'
 
 export default function Analyze() {
   const { draft, setDraft } = useDraft()
@@ -14,6 +15,7 @@ export default function Analyze() {
   const [error, setError] = useState<string>()
   const [truncated, setTruncated] = useState(false)
   const backRef = useRef<HTMLButtonElement>(null)
+  const [eta, setEta] = useState<string | null>(null)
 
   useEffect(() => {
     if (error) backRef.current?.focus()
@@ -49,7 +51,14 @@ export default function Analyze() {
         }
         if (ctrl.signal.aborted) return
         setStage('姿勢を推定中…')
-        const track = await extractPoseTrack(video, { onProgress: setProgress, signal: ctrl.signal })
+        const poseStart = Date.now()
+        const track = await extractPoseTrack(video, {
+          onProgress: (p) => {
+            setProgress(p)
+            setEta(formatEta((Date.now() - poseStart) / 1000, p))
+          },
+          signal: ctrl.signal,
+        })
         setStage('ムーブを解析中…')
         const analysis = analyze(track, draft.meta.wallAngle, draft.meta.sent)
         // E2E / 解析回帰テストから結果を読むためのフック
@@ -125,7 +134,9 @@ export default function Analyze() {
           >
             <div className="h-full bg-accent transition-all" style={{ width: `${Math.round(progress * 100)}%` }} />
           </div>
-          <p className="text-sm text-slate-400">{Math.round(progress * 100)}%</p>
+          <p className="text-sm text-slate-400">
+            {Math.round(progress * 100)}%{eta ? ` ・ ${eta}` : ''}
+          </p>
           <button className="inline-flex min-h-11 items-center px-2 text-sm text-slate-400 underline" onClick={() => navigate('/new')}>
             中止
           </button>

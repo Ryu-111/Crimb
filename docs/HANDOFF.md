@@ -17,7 +17,7 @@
 
 - 進行中のコード変更はない。YOLO-pose の組み込み（PR #22）はマージ済み。ブランチ `ccr-2578f9ba-cbz2gr` は main（`68784ba`）に合わせてある
   - PR #22 の CI: lint / typecheck / test / build / e2e / APK / プレビューは通過。CI 上の YOLO の変換も成功した（約 10.7MB、キャッシュ済み）
-  - Pose regression（garrett / eric）は、マージの時点でまだ実行中だった。結果を Actions で確かめること
+  - Pose regression（garrett / eric、壁の凹凸）も、PR と main（`c8fe664`）の両方で通過した（YOLO 入りで基準を満たす）
   - YOLO のモデルは `bash scripts/export-yolo.sh`（python と PyTorch の取得が必要）か、公開済みのもの `https://ryu-111.github.io/Crimb/models/yolo11n-pose.onnx` を `public/models/` に置く
 - **次の作業（Codex に依頼済み）**: 下の「次の一手」の 1〜3。ユーザーの動画で測るための評価キットはユーザーが持っている（`test-fixtures/private/` に置く。中身は README.md）
 

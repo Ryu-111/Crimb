@@ -1,4 +1,5 @@
 import { angle, dist, dropImplausiblePoses, LM, mean, mid, poseAt, torsoLength, type Pose } from './geometry'
+import { stabilize } from './camera'
 import { comPoints, detectLimbMoves, detectStillsAndMoves } from './segments'
 import type { Analysis, Frame, Metrics, PoseTrack, Segment } from './types'
 import { buildAdvice } from './rules'
@@ -77,8 +78,10 @@ export function analyze(raw: PoseTrack, wallAngle?: string, sent?: boolean): Ana
   const fallAt = sent ? null : dropAt
   const climbing: PoseTrack = { ...track, frames: climbFrames(track, dropAt) }
 
-  const { stills, moves } = detectStillsAndMoves(climbing, torso)
-  const limbMoves = detectLimbMoves(climbing, torso)
+  // 手持ちで追いかけて撮った動画では、止まっている手足や体がカメラの動きで動いて見える。壁（最初のコマ）の座標に直してから静止・移動を数える
+  const still = climbing.frames[0] ? stabilize(climbing, climbing.frames[0].t) : climbing
+  const { stills, moves } = detectStillsAndMoves(still, torso)
+  const limbMoves = detectLimbMoves(still, torso)
   const stillSec = stills.reduce((a, s) => a + s.end - s.start, 0)
   const climbSec = climbing.frames.length
     ? climbing.frames[climbing.frames.length - 1]!.t - climbing.frames[0]!.t

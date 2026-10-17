@@ -1,6 +1,7 @@
 import { dropImplausiblePoses, fullBodyVisible, isImplausible, poseAt, torsoLength } from '../analysis/geometry'
 import type { Frame, Landmark, PoseTrack } from '../analysis/types'
 import { trackCamera, toGray, type Gray } from '../analysis/camera'
+import { mergePose } from '../analysis/hybrid'
 import { cropBox, uncrop } from './crop'
 import { getLandmarker } from './landmarker'
 import { seek } from './video'
@@ -22,10 +23,13 @@ export interface ExtractOptions {
 /** 動画を一定間隔でシークして姿勢を推定し、補間・平滑化した時系列を返す */
 export async function extractPoseTrack(video: HTMLVideoElement, opts: ExtractOptions = {}): Promise<PoseTrack> {
   const landmarker = await getLandmarker()
+  // MediaPipe が見失う人（後ろ向き・暗い服・小さく写る）を YOLO-pose で補う。読み込めなければ MediaPipe だけで続ける
+  const yolo = await import('./yolo').then((m) => m.YoloTracker.create()).catch(() => null)
   const duration = Math.min(video.duration || 0, MAX_DURATION_SEC)
   const step = 1 / SAMPLE_FPS
   const total = Math.max(1, Math.floor(duration / step))
   const frames: Frame[] = []
+  const yoloFrames: Frame['lm'][] = []
   const grays: Gray[] = []
   const small = document.createElement('canvas')
   small.width = CAMERA_TRACK_WIDTH
@@ -37,6 +41,7 @@ export async function extractPoseTrack(video: HTMLVideoElement, opts: ExtractOpt
     await seek(video, t)
     clock += step * 1000
     frames.push({ t, lm: detect(landmarker, video) })
+    if (yolo) yoloFrames.push(await yolo.detect(video))
     if (smallCtx) {
       smallCtx.drawImage(video, 0, 0, small.width, small.height)
       grays.push(toGray(smallCtx.getImageData(0, 0, small.width, small.height).data, small.width, small.height))
@@ -44,7 +49,9 @@ export async function extractPoseTrack(video: HTMLVideoElement, opts: ExtractOpt
     opts.onProgress?.(i / total)
   }
   const track: PoseTrack = { fps: SAMPLE_FPS, width: video.videoWidth, height: video.videoHeight, frames }
-  const cleaned = cleanFrames(await redetect(landmarker, video, track, opts.signal))
+  const detected = await redetect(landmarker, video, track, opts.signal)
+  const merged = yolo ? detected.map((f, i) => ({ ...f, lm: mergePose(f.lm, yoloFrames[i] ?? null) })) : detected
+  const cleaned = cleanFrames(merged)
   return { ...track, frames: cleaned, camera: grays.length === cleaned.length ? cameraOffsets(grays, cleaned) : undefined }
 }
 

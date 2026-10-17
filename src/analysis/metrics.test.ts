@@ -109,3 +109,15 @@ describe('analyze', () => {
     expect(analyze(track, 'スラブ').advice.find((a) => a.id === 'straight-arm')!.severity).toBe('low')
   })
 })
+
+describe('long clips', () => {
+  it('analyzes a 17-minute clip quickly (limb stillness window is linear in frames)', () => {
+    const t = climb({ moves: 480, pause: 0.6 })
+    expect(t.frames.length).toBeGreaterThan(10_000)
+    const t0 = performance.now()
+    const a = analyze(t)
+    expect(a.limbMoves.length).toBeGreaterThan(900)
+    // 二乗の計算量だった頃は 2.5 秒。余裕を見て 1.5 秒（CI の遅い環境でも通る）
+    expect(performance.now() - t0).toBeLessThan(1500)
+  })
+})

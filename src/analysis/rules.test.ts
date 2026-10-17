@@ -23,6 +23,13 @@ const base: Metrics = {
 const ctx = { stills: [], limbMoves: [], track: { fps: 15, width: 1, height: 1, frames: [] }, torso: 0.1, elbowSamples: 100 }
 const ids = (m: Partial<Metrics>) => buildAdvice({ ...base, ...m }, ctx).map((a) => a.id)
 
+describe('buildAdvice with low detection', () => {
+  it('gives only the capture advice, even when other metrics look bad', () => {
+    const bad = { detectionRate: 0.3, straightArmRatio: 0, footHandRatio: 0.1, stillRatio: 0.9, fallAt: 3 }
+    expect(ids(bad)).toEqual(['capture'])
+  })
+})
+
 describe('buildAdvice thresholds', () => {
   it('gives no advice for an average climb', () => {
     expect(ids({})).toEqual([])

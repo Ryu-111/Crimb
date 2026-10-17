@@ -90,6 +90,8 @@ export function buildAdvice(m: Metrics, ctx: AdviceContext): Advice[] {
       title: '撮影条件を見直しましょう',
       detail: `姿勢を検出できたのは ${pct(m.detectionRate)} のフレームだけでした。スマホを固定し、壁から離れて全身（手足の先まで）が常に画面に入るように撮ると精度が上がります。`,
     })
+    // 検出が足りないと、静止・移動・腕の角度のどれも信頼できない。間違った助言を出すより、撮り直しだけを勧める
+    return out
   }
 
   if (m.fallAt !== null && !ctx.sent) {

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { LM } from './geometry'
+import { THRESHOLDS } from './rules'
 import type { PoseTrack } from './types'
 import { analyze } from './metrics'
 import { climb } from './synthetic'
@@ -96,6 +97,20 @@ describe('analyze', () => {
     track.frames = track.frames.map((f, i) => (i % 3 === 0 ? f : { ...f, lm: null }))
     const { advice } = analyze(track)
     expect(advice[0]!.id).toBe('capture')
+  })
+
+  it('never mixes other advice into a capture warning (40 random dropouts)', () => {
+    let seed = 7
+    const rnd = () => ((seed = (seed * 1664525 + 1013904223) >>> 0) / 2 ** 32)
+    for (let n = 0; n < 40; n++) {
+      const track = climb({ bend: rnd() * 2, useFeet: rnd() > 0.5, pause: rnd() * 6, fall: rnd() > 0.7 })
+      const keep = 0.2 + rnd() * 0.8
+      track.frames = track.frames.map((f) => (rnd() < keep ? f : { ...f, lm: null }))
+      const { metrics, advice } = analyze(track)
+      const ids = advice.map((a) => a.id)
+      if (metrics.detectionRate < THRESHOLDS.minDetectionRate) expect(ids, `rate ${metrics.detectionRate}`).toEqual(['capture'])
+      else expect(ids).not.toContain('capture')
+    }
   })
 
   it('handles an empty track', () => {

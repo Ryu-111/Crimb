@@ -45,6 +45,17 @@ android/      Capacitor Android プロジェクト
 - ただし検証・エラー処理・アクセシビリティ・テストは削らない（非自明なロジックには小さなテストを付ける）
 - 既知の制限がある近道には `// shortcut: <制限>, <いつ直すか>` コメント
 
+## 厳密な作業手順（pstack）
+
+Claude Code では [pstack](https://github.com/cursor/plugins/tree/main/pstack)（MIT）も自動で有効になる。`/pstack:poteto-mode` で作業に合う手順（バグ修正・機能追加・性能改善・PR の見守りなど）を選んで進める。
+
+- このファイルの規約が pstack より優先する。特に次の 3 点
+  - コミットと PR は日本語で書く（pstack の Conventional Commits 形式の英語タイトルにはしない）
+  - `// shortcut:` コメントは残す（`no-comments` スキルの対象外）
+  - 1 タスク = 1 PR
+- 既定で Grok などに振り分ける手順は、Claude Code ではセッションのモデルで動く。`/pstack:setup-pstack` は Claude Code では何も設定しない
+- Codex では使えない
+
 ## セキュリティ確認（Claude Security）
 
 Claude Code では [claude-security](https://github.com/anthropics/claude-plugins-official/tree/main/plugins/claude-security) プラグインが自動で有効になる（`.claude/settings.json`）。プラグイン本体はライセンス上リポジトリに複製しない。

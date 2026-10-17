@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
 import { analyze } from '../analysis/metrics'
 import { MAX_DURATION_SEC, checkFullBody, extractPoseTrack } from '../pose/extractFrames'
-import { captureThumbnail, loadVideo } from '../pose/video'
+import { CAMERA_SHIFT_LIMIT } from '../analysis/camera'
+import { cameraShift, captureThumbnail, loadVideo } from '../pose/video'
 import { useDraft } from '../lib/draft'
 
 export default function Analyze() {
@@ -18,8 +19,9 @@ export default function Analyze() {
     if (error) backRef.current?.focus()
   }, [error])
 
-  /** 全身が映っていないときの「このまま解析」 */
+  /** 撮り方に問題がありそうなとき（全身が映っていない・カメラが動いている）の「このまま解析」 */
   const [proceed, setProceed] = useState<() => void>()
+  const [warnings, setWarnings] = useState<{ body: boolean; camera: boolean }>()
 
   useEffect(() => {
     if (!draft) return
@@ -37,7 +39,10 @@ export default function Analyze() {
         const video = await loadVideo(draft.url)
         setTruncated(video.duration > MAX_DURATION_SEC)
         setStage('撮影範囲を確認中…')
-        if (!(await checkFullBody(video))) {
+        const body = !(await checkFullBody(video))
+        const camera = (await cameraShift(video)) > CAMERA_SHIFT_LIMIT
+        if (body || camera) {
+          setWarnings({ body, camera })
           await new Promise<void>((resolve) => setProceed(() => resolve))
           setProceed(undefined)
         }
@@ -77,10 +82,22 @@ export default function Analyze() {
         </>
       ) : proceed ? (
         <div role="alert" className="flex flex-col gap-3 rounded-lg bg-slate-800 p-4">
-          <p className="font-bold text-amber-300">全身が映っていないようです</p>
-          <p className="text-sm text-slate-300">
-            手先から足先まで全身が画面に収まるように撮ると、正しく解析できます。スマホは縦向きのまま、壁から少し離れて撮るのがおすすめです。
-          </p>
+          {warnings?.body && (
+            <>
+              <p className="font-bold text-amber-300">全身が映っていないようです</p>
+              <p className="text-sm text-slate-300">
+                手先から足先まで全身が画面に収まるように撮ると、正しく解析できます。スマホは縦向きのまま、壁から少し離れて撮るのがおすすめです。
+              </p>
+            </>
+          )}
+          {warnings?.camera && (
+            <>
+              <p className="font-bold text-amber-300">カメラが動いているようです</p>
+              <p className="text-sm text-slate-300">
+                スマホを置くか三脚で固定して撮ると、動きの速さやホールドに触れた位置を正しく測れます。人を追いかけて撮った動画では、ずれが出ます。
+              </p>
+            </>
+          )}
           <div className="flex justify-center gap-3">
             <button className="rounded-lg bg-slate-700 px-4 py-2" onClick={() => navigate('/new')}>
               撮り直す

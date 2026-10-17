@@ -54,7 +54,7 @@ export default function Growth() {
               </option>
             ))}
           </select>
-          <select aria-label="期間" className="rounded-lg bg-slate-800 p-2" value={days} onChange={(e) => setDays(Number(e.target.value))}>
+          <select aria-label="期間" className="min-h-11 rounded-lg bg-slate-800 p-2" value={days} onChange={(e) => setDays(Number(e.target.value))}>
             {PERIODS.map((p) => (
               <option key={p.label} value={p.days}>
                 {p.label}

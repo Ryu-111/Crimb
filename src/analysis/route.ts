@@ -200,7 +200,8 @@ export function holdContacts(track: PoseTrack, holds: Hold[]): Contact[] {
     let best: number | null = null
     let bestD = CONTACT_DISTANCE
     holds.forEach((h, i) => {
-      const d = Math.hypot(x - h.x, (y - h.y) * aspect) - Math.max(h.w, h.h * aspect) / 2
+      // 外接枠までの距離（枠の中なら 0）。長辺を直径とする円で近似すると、細長いホールドの周りを広く拾ってしまう
+      const d = Math.hypot(Math.max(Math.abs(x - h.x) - h.w / 2, 0), Math.max((Math.abs(y - h.y) - h.h / 2) * aspect, 0))
       if (d < bestD) {
         best = i
         bestD = d

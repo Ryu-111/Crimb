@@ -45,6 +45,18 @@ android/      Capacitor Android プロジェクト
 - ただし検証・エラー処理・アクセシビリティ・テストは削らない（非自明なロジックには小さなテストを付ける）
 - 既知の制限がある近道には `// shortcut: <制限>, <いつ直すか>` コメント
 
+## セキュリティ確認（Claude Security）
+
+Claude Code では [claude-security](https://github.com/anthropics/claude-plugins-official/tree/main/plugins/claude-security) プラグインが自動で有効になる（`.claude/settings.json`）。プラグイン本体はライセンス上リポジトリに複製しない。
+
+- 次の変更を含む PR では、push 前に `/claude-security` の **Scan changes**（ブランチの差分）を実行する
+  - 外部への通信（`fetch`・Worker・Service Worker のキャッシュ規則）
+  - 取り込み・復元（バックアップの読み込みなど、外から来たデータを DB に入れる処理）
+  - 依存の追加
+- 全体スキャン（Scan codebase）は大きな機能を入れた後に必要なときだけ実行する。時間とトークンを使う
+- 結果は `CLAUDE-SECURITY-<時刻>/` に出る。`.gitignore` 済みで、コミットしない。見つかった問題は通常の修正として直す
+- Codex では使えない。代わりに上の観点で差分を目視確認する
+
 ## 規約
 
 - TypeScript strict / `noUncheckedIndexedAccess`。`any` 禁止

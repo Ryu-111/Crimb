@@ -35,18 +35,18 @@ export default function Home() {
             type="search"
             aria-label="課題名で検索"
             placeholder="課題名で検索"
-            className="min-w-0 rounded-lg bg-slate-800 p-2"
+            className="min-h-11 min-w-0 rounded-lg bg-slate-800 p-2"
             value={q}
             onChange={(e) => setQ(e.target.value)}
           />
-          <select aria-label="グレード" className="rounded-lg bg-slate-800 p-2" value={grade} onChange={(e) => setGrade(e.target.value)}>
+          <select aria-label="グレード" className="min-h-11 rounded-lg bg-slate-800 p-2" value={grade} onChange={(e) => setGrade(e.target.value)}>
             <option value="">全グレード</option>
             {GRADES.map((g) => (
               <option key={g}>{g}</option>
             ))}
           </select>
-          <select aria-label="結果" className="rounded-lg bg-slate-800 p-2" value={sent} onChange={(e) => setSent(e.target.value)}>
-            <option value="">すべて</option>
+          <select aria-label="結果" className="min-h-11 rounded-lg bg-slate-800 p-2" value={sent} onChange={(e) => setSent(e.target.value)}>
+            <option value="">全結果</option>
             <option value="true">完登</option>
             <option value="false">トライ</option>
           </select>

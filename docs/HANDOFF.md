@@ -15,15 +15,15 @@
 
 ### 進行中
 
-- ブランチ `feat/hold-thin-band-filter`（PR は下記）: `findHolds` で縦横比 5 超の細い帯を除く（`MAX_HOLD_ASPECT`）。合成画像のテストあり。通したチェック: lint / typecheck / test（85 件）/ build。e2e は未実行（この環境に Playwright ブラウザがない）
+- ブランチ `feat/hold-thin-band-filter`（PR #24）: `findHolds` で縦横比 5 超の細い帯を除く（`MAX_HOLD_ASPECT`）。合成画像のテストあり。通したチェック: lint / typecheck / test（85 件）/ build。e2e は未実行（この環境に Playwright ブラウザがない）
   - しきい値 5 の根拠: garrett の実ホールド 11 個の縦横比の最大が 2.7（`garrett.pink-holds.json` から計算）、a の紫のふちの帯が約 6（前回の計測の記録）。a の動画でのアプリ上の再計測は未実施
 - この環境には `test-fixtures/private/`（a / b の動画と評価キット）がない。次の一手の 1・2（再計測・`holds_gt.json`）はユーザーの手元の環境でしか進められない
 
-- 進行中のコード変更はない。YOLO-pose の組み込み（PR #22）はマージ済み。ブランチ `ccr-2578f9ba-cbz2gr` は main（`68784ba`）に合わせてある
+- YOLO-pose の組み込み（PR #22）はマージ済み
   - PR #22 の CI: lint / typecheck / test / build / e2e / APK / プレビューは通過。CI 上の YOLO の変換も成功した（約 10.7MB、キャッシュ済み）
   - Pose regression（garrett / eric、壁の凹凸）も、PR と main（`c8fe664`）の両方で通過した（YOLO 入りで基準を満たす）
   - YOLO のモデルは `bash scripts/export-yolo.sh`（python と PyTorch の取得が必要）か、公開済みのもの `https://ryu-111.github.io/Crimb/models/yolo11n-pose.onnx` を `public/models/` に置く
-- **次の作業（Codex に依頼済み）**: 下の「次の一手」の 1〜3。ユーザーの動画で測るための評価キットはユーザーが持っている（`test-fixtures/private/` に置く。中身は README.md）
+- **次の作業**: 下の「次の一手」の 1〜3（Codex に依頼済みだが、動画が必要な 1・2 は手元の環境でのみ可能）。ユーザーの動画で測るための評価キットはユーザーが持っている（`test-fixtures/private/` に置く。中身は README.md）
 
 ### 精度改善の状況
 

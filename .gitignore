@@ -22,3 +22,5 @@ pose-results
 .claude/worktrees/
 # Claude Security プラグインのスキャン結果（秘密情報を含みうるのでコミットしない）
 CLAUDE-SECURITY-*/
+# ユーザーの実際の動画（精度の確認用。公開リポジトリなのでコミットしない）
+test-fixtures/private/

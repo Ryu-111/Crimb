@@ -10,7 +10,7 @@ import MoveList from '../components/MoveList'
 import RouteSection from '../components/RouteSection'
 import Timeline from '../components/Timeline'
 import VideoOverlay, { type VideoOverlayHandle } from '../components/VideoOverlay'
-import { db, deleteSession, previousSession, saveSession, type SessionMeta } from '../db/db'
+import { db, deleteSession, previousSession, saveSession, type SavedRoute, type SessionMeta } from '../db/db'
 import { useDraft } from '../lib/draft'
 import { formatDate } from '../lib/format'
 import { useObjectUrl } from '../lib/useObjectUrl'
@@ -21,10 +21,13 @@ interface ViewProps {
   track: PoseTrack
   analysis: Analysis
   videoUrl?: string
+  route?: SavedRoute
+  onRouteChange?: (route: SavedRoute | undefined) => void
+  sessionId?: number
   children?: React.ReactNode
 }
 
-function ResultView({ meta, createdAt, track, analysis, videoUrl, children }: ViewProps) {
+function ResultView({ meta, createdAt, track, analysis, videoUrl, route, onRouteChange, sessionId, children }: ViewProps) {
   const { metrics, advice } = analysis
   const overlay = useRef<VideoOverlayHandle>(null)
   const seek = videoUrl ? (t: number) => overlay.current?.seek(t) : undefined
@@ -56,7 +59,16 @@ function ResultView({ meta, createdAt, track, analysis, videoUrl, children }: Vi
       {videoUrl && (
         <div>
           <h2 className="mb-2 font-semibold">課題を 3D で見る</h2>
-          <RouteSection videoUrl={videoUrl} track={track} wallAngle={meta.wallAngle} onSeek={seek} />
+          <RouteSection
+            videoUrl={videoUrl}
+            track={track}
+            wallAngle={meta.wallAngle}
+            onSeek={seek}
+            route={route}
+            onRouteChange={onRouteChange}
+            problemName={meta.problemName || undefined}
+            sessionId={sessionId}
+          />
         </div>
       )}
       <div>
@@ -82,6 +94,7 @@ export function DraftResult() {
   const [keepVideo, setKeepVideo] = useState(false)
   const [saveError, setSaveError] = useState<string>()
   const [saving, setSaving] = useState(false)
+  const [route, setRoute] = useState<SavedRoute>()
   if (!draft?.track || !draft.analysis || !draft.createdAt) return <Navigate to="/new" replace />
   const { track, analysis, createdAt } = draft
 
@@ -97,6 +110,7 @@ export function DraftResult() {
           advice: analysis.advice,
           thumbnail: draft.thumbnail,
           hasVideo: !!video,
+          route,
         },
         track,
         video,
@@ -128,6 +142,8 @@ export function DraftResult() {
       track={track}
       analysis={analysis}
       videoUrl={draft.url}
+      route={route}
+      onRouteChange={setRoute}
     >
       <div className="space-y-3 rounded-xl bg-slate-800/50 p-4">
         <label className="flex items-center gap-2 text-sm">
@@ -202,6 +218,9 @@ export function SavedResult() {
       track={track.track}
       analysis={analysis}
       videoUrl={videoUrl}
+      route={session.route}
+      onRouteChange={(r) => db.sessions.update(id, { route: r }).catch(() => {})}
+      sessionId={id}
     >
       {editing ? (
         <div className="space-y-3 rounded-xl bg-slate-800/50 p-4">

@@ -160,3 +160,47 @@ export function isImplausible(p: Pose, torso: number): boolean {
   const r = p.torso / torso
   return r < 0.5 || r > 2 || p.hipMid.y < p.shoulderMid.y - 0.25 * torso
 }
+
+/**
+ * 体の部位の質量比（de Leva 1996 を左右・部位でまとめた近似）と、部位の両端のランドマーク。
+ * 頭は鼻、体幹は肩中点〜腰中点、腕・脚は関節間の中点を部位の重心とする
+ */
+const SEGMENTS: [number, number[], number[]][] = [
+  [0.081, [LM.nose], [LM.nose]],
+  [0.497, [LM.leftShoulder, LM.rightShoulder], [LM.leftHip, LM.rightHip]],
+  [0.028, [LM.leftShoulder], [LM.leftElbow]],
+  [0.028, [LM.rightShoulder], [LM.rightElbow]],
+  [0.022, [LM.leftElbow], [LM.leftWrist]],
+  [0.022, [LM.rightElbow], [LM.rightWrist]],
+  [0.1, [LM.leftHip], [LM.leftKnee]],
+  [0.1, [LM.rightHip], [LM.rightKnee]],
+  [0.061, [LM.leftKnee], [LM.leftAnkle]],
+  [0.061, [LM.rightKnee], [LM.rightAnkle]],
+]
+
+const TRUNK = 1
+
+/**
+ * 部位ごとの質量比で重み付けした身体重心（正規化画像座標）。
+ * 見えていない（visibility < 0.3）部位は除いて重みを配り直す。体幹が見えなければ null
+ */
+export function segmentCom(lm: Landmark[]): Vec | null {
+  const avg = (ids: number[]) => ({
+    x: ids.reduce((s, i) => s + lm[i]!.x, 0) / ids.length,
+    y: ids.reduce((s, i) => s + lm[i]!.y, 0) / ids.length,
+  })
+  let x = 0
+  let y = 0
+  let w = 0
+  for (const [k, [mass, a, b]] of SEGMENTS.entries()) {
+    if (![...a, ...b].every((i) => (lm[i]?.v ?? 0) >= 0.3)) {
+      if (k === TRUNK) return null
+      continue
+    }
+    const c = mid(avg(a), avg(b))
+    x += c.x * mass
+    y += c.y * mass
+    w += mass
+  }
+  return w ? { x: x / w, y: y / w } : null
+}

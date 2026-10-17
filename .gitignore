@@ -20,3 +20,5 @@ android/capacitor-cordova-android-plugins
 pose-results
 .lighthouseci
 .claude/worktrees/
+# Claude Security プラグインのスキャン結果（秘密情報を含みうるのでコミットしない）
+CLAUDE-SECURITY-*/

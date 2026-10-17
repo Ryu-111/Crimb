@@ -14,6 +14,7 @@ PR を出すと CI / E2E / Lighthouse / プレビュー / APK が自動で走る
 - [x] 保存（IndexedDB、動画保存は任意）・履歴一覧（最小版）・成長（最小版）
 - [x] Capacitor Android、GitHub Actions 一式、Dependabot
 - [x] Ponytail + Context Mode プラグインを `.claude/settings.json` に登録（手順は docs/jev-router.md）
+- [x] Claude Security プラグインを `.claude/settings.json` に登録し、差分スキャンを回す場面を AGENTS.md に記載
 
 ## Codex 向け
 
@@ -40,5 +41,7 @@ PR を出すと CI / E2E / Lighthouse / プレビュー / APK が自動で走る
 - [ ] **解析の高速化**: Web Worker / OffscreenCanvas 化。実機で解析時間を測ってから判断
 - [ ] **UX 全体の仕上げ**: 空状態、エラー表示、アクセシビリティ、iOS Safari での動画選択・シークの実機確認
 - [x] **課題の 3D 表示**: 結果画面で課題のホールドを 1 つタップ → 同じ色のホールドを拾い、触れた順の番号・手足の経路・骨格を three.js で表示（`src/analysis/route.ts`, `src/components/Route3D.tsx`）
-- [ ] **課題の 3D 表示の改善**: 白・灰・黒のホールド（色差で判定）、壁の写真に使うコマの選択、タップした色の保存
+- [x] **振り返りの強化**: 部位の質量比による重心推定と軌跡、手足の軌跡、同じ課題の別トライの重ね合わせ（ホールドの位置で写真を合わせ、最初に触れた時刻で再生をそろえる）、選んだ課題の保存
+- [x] **壁の凹凸（写真 1 枚から奥行き推定）**: Depth Anything V2 Small（int8、約 27MB、Apache-2.0）を onnxruntime-web で端末内実行し、3D の壁を凹凸のある面にする（`src/analysis/relief.ts`, `src/pose/depth*.ts`）。CI の `@pose depth` で実モデルを確認
+- [ ] **課題の 3D 表示の改善**: 白・灰・黒のホールド（色差で判定）、壁の写真に使うコマの選択
 - [x] **ムーブ単位の振り返り**: ムーブごとにサムネと所要時間を並べ、「一番苦戦したムーブ」を表示

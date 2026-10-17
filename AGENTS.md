@@ -27,7 +27,7 @@ src/
     metrics.ts    analyze(track) → Analysis（指標の算出、落下検出）
     rules.ts      THRESHOLDS と buildAdvice（改善案。しきい値はここに集約）
     synthetic.ts  テスト用の合成クライマー climb({ bend, useFeet, pause, fall })
-  pose/       MediaPipe（landmarker.ts）、動画→時系列（extractFrames.ts）、平滑化（smoothing.ts）
+  pose/       MediaPipe（landmarker.ts）、動画→時系列（extractFrames.ts）、平滑化（smoothing.ts）、壁の奥行き推定（depth.ts + depthWorker.ts）
   db/db.ts    Dexie: sessions / tracks / videos（姿勢時系列と動画は別テーブル）
   routes/     画面（HashRouter）。Home / NewSession / Analyze / Result / Problem（同一課題の比較） / Growth / Settings
   components/ VideoOverlay（骨格描画）, Timeline, MoveList, MetaFields（課題情報の入力・GRADES/ANGLES）, MetricGrid, AdviceList, Thumb
@@ -44,6 +44,18 @@ android/      Capacitor Android プロジェクト
 - 依存を数行のために追加しない。最短で読みやすい差分を選ぶ
 - ただし検証・エラー処理・アクセシビリティ・テストは削らない（非自明なロジックには小さなテストを付ける）
 - 既知の制限がある近道には `// shortcut: <制限>, <いつ直すか>` コメント
+
+## セキュリティ確認（Claude Security）
+
+Claude Code では [claude-security](https://github.com/anthropics/claude-plugins-official/tree/main/plugins/claude-security) プラグインが自動で有効になる（`.claude/settings.json`）。プラグイン本体はライセンス上リポジトリに複製しない。
+
+- 次の変更を含む PR では、push 前に `/claude-security` の **Scan changes**（ブランチの差分）を実行する
+  - 外部への通信（`fetch`・Worker・Service Worker のキャッシュ規則）
+  - 取り込み・復元（バックアップの読み込みなど、外から来たデータを DB に入れる処理）
+  - 依存の追加
+- 全体スキャン（Scan codebase）は大きな機能を入れた後に必要なときだけ実行する。時間とトークンを使う
+- 結果は `CLAUDE-SECURITY-<時刻>/` に出る。`.gitignore` 済みで、コミットしない。見つかった問題は通常の修正として直す
+- Codex では使えない。代わりに上の観点で差分を目視確認する
 
 ## 規約
 

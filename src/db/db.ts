@@ -1,4 +1,5 @@
 import Dexie, { type EntityTable } from 'dexie'
+import type { Hold, Hsv } from '../analysis/route'
 import type { Advice, Metrics, PoseTrack } from '../analysis/types'
 
 export interface SessionMeta {
@@ -18,6 +19,13 @@ export interface SessionRecord extends SessionMeta {
   advice: Advice[]
   thumbnail?: Blob
   hasVideo: boolean
+  /** 課題のホールド（3D 表示でタップした色と、最初のコマから拾った位置）。インデックスは不要なのでスキーマ変更なし */
+  route?: SavedRoute
+}
+
+export interface SavedRoute {
+  color: Hsv
+  holds: Hold[]
 }
 
 /** 姿勢時系列は一覧表示で読み込まないよう別テーブル */

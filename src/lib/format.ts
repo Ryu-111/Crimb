@@ -28,3 +28,12 @@ export const METRICS: MetricDef[] = [
 export function formatDate(ms: number): string {
   return new Date(ms).toLocaleString('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })
 }
+
+/** 解析の残り時間の表示。進み具合が小さいうちは見積もりが大きくぶれるので出さない */
+export function formatEta(elapsedSec: number, progress: number): string | null {
+  if (progress < 0.05 || progress >= 1 || elapsedSec <= 0) return null
+  const rest = Math.round((elapsedSec * (1 - progress)) / progress)
+  if (rest < 5) return 'まもなく完了'
+  if (rest < 60) return `あと約 ${Math.ceil(rest / 5) * 5} 秒`
+  return `あと約 ${Math.ceil(rest / 60)} 分`
+}

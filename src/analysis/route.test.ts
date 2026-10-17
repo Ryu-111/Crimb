@@ -105,6 +105,27 @@ describe('hold contacts', () => {
   })
 })
 
+describe('contact distance for elongated holds', () => {
+  // 横に長い帯状のホールド（幅 0.4、高さ 0.02）。長辺を直径とする円で見ると、真上 0.15 の足も触れていると誤判定していた
+  const rail: Hold[] = [{ x: 0.5, y: 0.5, w: 0.4, h: 0.02, area: 0.006 }]
+  const at = (x: number, y: number): PoseTrack => ({
+    fps: 15,
+    width: 500,
+    height: 1000,
+    frames: Array.from({ length: 15 }, (_, i) => ({
+      t: i / 15,
+      lm: Array.from({ length: 33 }, (_, k) => ({ ...([27, 31].includes(k) ? { x, y } : { x: 0.9, y: 0.05 }), v: 1 })),
+    })),
+  })
+
+  it('touches along the long edge and not above it', () => {
+    expect(holdContacts(at(0.65, 0.5), rail)).toHaveLength(1)
+    expect(holdContacts(at(0.65, 0.52), rail)).toHaveLength(1) // 外接枠の縁のすぐ下
+    expect(holdContacts(at(0.5, 0.65), rail)).toHaveLength(0) // 長辺の半分を超えて上下に離れている
+    expect(holdContacts(at(0.5, 0.56), rail)).toHaveLength(0)
+  })
+})
+
 describe('wall tilt', () => {
   it('maps the recorded wall angle to a lean from vertical', () => {
     expect(wallTilt('垂壁')).toBe(0)
@@ -129,7 +150,8 @@ describe('real climb: garrett (pink problem)', () => {
     // 最後に触れたのは一番上のホールド、最初の足は下の大きいピンク
     expect(c[c.length - 1]!.hold).toBe(top)
     expect(c.find((x) => x.limb.endsWith('足'))!.hold).toBe(bottom)
-    expect(order).toHaveLength(7)
+    // 最初に触れる細い帯（外接枠 25×9px）は、すぐ下の大きなホールドの上のふちの破片。目視で確認したので数えない（以前は 7 と数えていた）
+    expect(order).toHaveLength(6)
   })
 })
 

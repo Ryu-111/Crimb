@@ -1,7 +1,18 @@
 import { describe, expect, it } from 'vitest'
 import { LM } from './geometry'
+import type { PoseTrack } from './types'
 import { analyze } from './metrics'
 import { climb } from './synthetic'
+
+/** 手持ちのぶれ・追いかけで画面全体が動く動画を作る（landmark を動かし、同じ量を camera に記録する） */
+function withCameraMotion(track: PoseTrack, amp: number, periodSec: number, record: boolean): PoseTrack {
+  const camera = track.frames.map((f) => ({ dx: amp * Math.sin((2 * Math.PI * f.t) / periodSec), dy: amp * 0.6 * Math.sin((2 * Math.PI * f.t) / (periodSec * 1.7)) }))
+  return {
+    ...track,
+    frames: track.frames.map((f, i) => (f.lm ? { ...f, lm: f.lm.map((p) => ({ ...p, x: p.x + camera[i]!.dx, y: p.y + camera[i]!.dy })) } : f)),
+    ...(record ? { camera } : {}),
+  }
+}
 
 describe('analyze', () => {
   it('rewards a straight-arm, footwork-driven climb', () => {
@@ -119,5 +130,31 @@ describe('long clips', () => {
     expect(a.limbMoves.length).toBeGreaterThan(900)
     // 二乗の計算量だった頃は 2.5 秒。余裕を見て 1.5 秒（CI の遅い環境でも通る）
     expect(performance.now() - t0).toBeLessThan(1500)
+  })
+})
+
+describe('camera motion compensation', () => {
+  it('keeps limb moves and stills the same when the camera pans (20 random pans)', () => {
+    let seed = 11
+    const rnd = () => ((seed = (seed * 1664525 + 1013904223) >>> 0) / 2 ** 32)
+    let uncompensatedWorse = 0
+    for (let n = 0; n < 20; n++) {
+      const clean = climb({ pause: 1 + rnd() * 2, moves: 4 + Math.floor(rnd() * 4) })
+      const a = analyze(clean)
+      const amp = 0.03 + rnd() * 0.05
+      const period = 2 + rnd() * 4
+      const fixed = analyze(withCameraMotion(clean, amp, period, true))
+      const blind = analyze(withCameraMotion(clean, amp, period, false))
+      expect(fixed.limbMoves.length, 'limb moves').toBe(a.limbMoves.length)
+      expect(fixed.moves.length, 'moves').toBe(a.moves.length)
+      if (Math.abs(blind.limbMoves.length - a.limbMoves.length) + Math.abs(blind.moves.length - a.moves.length) > 0) uncompensatedWorse++
+    }
+    // 補正なしでは崩れる条件であること（テストが補正の効果を見ていることの確認）
+    expect(uncompensatedWorse).toBeGreaterThan(5)
+  })
+
+  it('is a no-op for tracks without camera data', () => {
+    const t = climb()
+    expect(analyze(t).metrics).toEqual(analyze({ ...t, camera: undefined }).metrics)
   })
 })

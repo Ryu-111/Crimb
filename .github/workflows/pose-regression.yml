@@ -38,6 +38,8 @@ jobs:
         with:
           path: public/mediapipe/models
           key: mediapipe-model-v1
+      # YOLO-pose のモデル（公式の重みから変換。キャッシュがなければ 1〜2 分かかる）
+      - uses: ./.github/actions/yolo-model
       - run: npx playwright install --with-deps chromium
       - run: npm run build
       - name: 実動画での解析 (test-fixtures/)

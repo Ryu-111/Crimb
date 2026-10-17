@@ -9,7 +9,7 @@ Android アプリ（APK）は [Actions の Android APK](https://github.com/Ryu-1
 [![CI](https://github.com/Ryu-111/Crimb/actions/workflows/ci.yml/badge.svg)](https://github.com/Ryu-111/Crimb/actions/workflows/ci.yml)
 
 - 📱 スマホ前提（iPhone / Android のブラウザでホーム画面に追加、または Android APK）
-- 🔒 姿勢推定（MediaPipe Pose）は **端末内で実行**。動画は外部に送信しない
+- 🔒 姿勢推定（MediaPipe Pose + YOLO11n-pose）は **端末内で実行**。動画は外部に送信しない
 - 💡 指標（ストレートアーム率・足/手の動き比・静止時間・重心の効率・横ブレ・落下地点など）からルールベースで改善案
 - 📈 記録は端末内（IndexedDB）に保存し、同じ課題の前回と比較
 
@@ -34,6 +34,10 @@ npm run e2e          # Playwright（要 build）
 
 MediaPipe の wasm とモデルは `npm run dev` / `npm run build` の前に `scripts/fetch-models.mjs` が
 `public/mediapipe/` に配置します（リポジトリにはコミットしません）。
+
+MediaPipe が見失いやすい人（後ろ向き・暗い服・画面に小さく写る）は、YOLO11n-pose（[Ultralytics](https://github.com/ultralytics/ultralytics)、**AGPL-3.0**）で補います。
+モデルは `bash scripts/export-yolo.sh` で公式の重みから ONNX に変換し、`public/models/` に置きます（python3 が必要。CI では自動で行います）。
+モデルがなくても、アプリは MediaPipe だけで動きます。
 
 構成・規約は [AGENTS.md](AGENTS.md)、残タスクは [docs/TASKS.md](docs/TASKS.md)、
 jev-router + Codex での開発手順は [docs/jev-router.md](docs/jev-router.md) を参照。

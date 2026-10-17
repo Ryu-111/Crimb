@@ -27,6 +27,8 @@ jobs:
         with:
           path: public/mediapipe/models
           key: mediapipe-model-v1
+      # YOLO-pose のモデル（公式の重みから変換。キャッシュがなければ 1〜2 分かかる）
+      - uses: ./.github/actions/yolo-model
       - run: npm run build
       - uses: JamesIves/github-pages-deploy-action@fa24774553152dd7873cd16ebd8d959b010c5445 # v4.9.0
         with:

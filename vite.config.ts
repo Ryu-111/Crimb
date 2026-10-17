@@ -33,8 +33,8 @@ export default defineConfig({
         ],
       },
       workbox: {
-        // 姿勢推定の wasm (約13MB) とモデルもプリキャッシュしてジムの圏外でも解析できるようにする
-        globPatterns: ['**/*.{js,css,html,svg,png,webmanifest}', 'mediapipe/wasm/vision_wasm_internal.*', 'mediapipe/models/*.task'],
+        // 姿勢推定の wasm (約13MB) とモデル（MediaPipe、YOLO-pose 約 11MB）もプリキャッシュしてジムの圏外でも解析できるようにする
+        globPatterns: ['**/*.{js,css,html,svg,png,webmanifest}', 'mediapipe/wasm/vision_wasm_internal.*', 'mediapipe/models/*.task', 'models/*.onnx'],
         // 本番の SW が /Crimb/pr-preview/pr-N/ への遷移に本番 index.html を返して白画面にしないように
         navigateFallbackDenylist: [/\/pr-preview\//],
         maximumFileSizeToCacheInBytes: 20 * 1024 * 1024,

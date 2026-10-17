@@ -11,9 +11,13 @@
 - 数値（精度など）は、測った方法と一緒に書く。測っていない数値は書かない
 - ユーザーの動画や個人データの中身はここに書かない（置き場所だけ書く）
 
-## 現在（2026-10-17 更新: Claude Code）
+## 現在（2026-10-18 更新: Claude Code）
 
 ### 進行中
+
+- ブランチ `feat/hold-thin-band-filter`（PR は下記）: `findHolds` で縦横比 5 超の細い帯を除く（`MAX_HOLD_ASPECT`）。合成画像のテストあり。通したチェック: lint / typecheck / test（85 件）/ build。e2e は未実行（この環境に Playwright ブラウザがない）
+  - しきい値 5 の根拠: garrett の実ホールド 11 個の縦横比の最大が 2.7（`garrett.pink-holds.json` から計算）、a の紫のふちの帯が約 6（前回の計測の記録）。a の動画でのアプリ上の再計測は未実施
+- この環境には `test-fixtures/private/`（a / b の動画と評価キット）がない。次の一手の 1・2（再計測・`holds_gt.json`）はユーザーの手元の環境でしか進められない
 
 - 進行中のコード変更はない。YOLO-pose の組み込み（PR #22）はマージ済み。ブランチ `ccr-2578f9ba-cbz2gr` は main（`68784ba`）に合わせてある
   - PR #22 の CI: lint / typecheck / test / build / e2e / APK / プレビューは通過。CI 上の YOLO の変換も成功した（約 10.7MB、キャッシュ済み）

@@ -44,6 +44,21 @@ describe('hold detection', () => {
   })
 })
 
+describe('thin bands', () => {
+  it('drops a thin strip (a hold rim) but keeps a long rail-like hold', () => {
+    const w = 100
+    const h = 200
+    const data = image(w, h, [{ x: 30, y: 40, r: 6, rgb: PINK }])
+    const paint = (x0: number, y0: number, bw: number, bh: number) => {
+      for (let y = y0; y < y0 + bh; y++) for (let x = x0; x < x0 + bw; x++) data.set([...PINK, 255], (y * w + x) * 4)
+    }
+    paint(50, 100, 25, 4) // 縦横比 6: 帯
+    paint(50, 150, 25, 10) // 縦横比 2.5: 細長いホールド
+    const holds = findHolds(data, w, h, pickColor(data, w, h, 30, 40)!)
+    expect(holds.map((x) => Math.round(x.y * h)).sort((a, b) => a - b)).toEqual([40, 155])
+  })
+})
+
 describe('white, grey and black holds', () => {
   const w = 100
   const h = 200

@@ -28,8 +28,12 @@ export interface Hsv {
 
 /** 同じ色とみなす色相の幅（度） */
 export const HUE_TOLERANCE = 20
-/** これより彩度が低い色（白・灰・黒）は色相が安定しないので扱わない */
+/** これより彩度が低い色（白・灰・黒）は色相が安定しないので、色相でなく明るさで判定する */
 export const MIN_SATURATION = 0.25
+/** 白・灰・黒のホールドで、同じ色とみなす色差（CIE76 の ΔE）。暗い色は彩度が揺れるので色相でなく色差で見る */
+export const LAB_TOLERANCE = 12
+/** 塊の周りのこの割合以上が色の濃いピクセルなら、色付きのホールドの影やふちとみなす */
+export const SHADOW_RIM_RATIO = 0.2
 /** これより小さい塊はホールドとみなさない（画面に占める割合） */
 export const MIN_HOLD_AREA = 0.00008
 /** 手足の位置からホールドの縁までこの距離（画面幅に対する割合）以内なら触れている */
@@ -49,7 +53,34 @@ export function rgbToHsv(r: number, g: number, b: number): Hsv {
   return { h: (h * 60 + 360) % 360, s: max ? d / max : 0, v: max / 255 }
 }
 
-/** タップした位置の周り 5×5 ピクセルの平均色。彩度が低すぎる（白・灰・黒）ときは null */
+export function hsvToRgb({ h, s, v }: Hsv): [number, number, number] {
+  const f = (n: number) => {
+    const k = (n + h / 60) % 6
+    return 255 * (v - v * s * Math.max(0, Math.min(k, 4 - k, 1)))
+  }
+  return [f(5), f(3), f(1)]
+}
+
+/** sRGB（0..255）→ CIE L*a*b*（D65） */
+export function rgbToLab(r: number, g: number, b: number): [number, number, number] {
+  const lin = (c: number) => {
+    const x = c / 255
+    return x <= 0.04045 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4
+  }
+  const [R, G, B] = [lin(r), lin(g), lin(b)]
+  const f = (t: number) => (t > 216 / 24389 ? Math.cbrt(t) : (24389 / 27 * t + 16) / 116)
+  const x = f((0.4124 * R + 0.3576 * G + 0.1805 * B) / 0.95047)
+  const y = f(0.2126 * R + 0.7152 * G + 0.0722 * B)
+  const z = f((0.0193 * R + 0.1192 * G + 0.9505 * B) / 1.08883)
+  return [116 * y - 16, 500 * (x - y), 200 * (y - z)]
+}
+
+/** 白・灰・黒（色相で見分けられない色）か */
+export function isAchromatic(c: Hsv): boolean {
+  return c.s < MIN_SATURATION
+}
+
+/** タップした位置の周り 5×5 ピクセルの平均色 */
 export function pickColor(data: Uint8ClampedArray, width: number, height: number, px: number, py: number): Hsv | null {
   let r = 0
   let g = 0
@@ -65,22 +96,31 @@ export function pickColor(data: Uint8ClampedArray, width: number, height: number
     }
   }
   if (!n) return null
-  const c = rgbToHsv(r / n, g / n, b / n)
-  return c.s >= MIN_SATURATION ? c : null
+  return rgbToHsv(r / n, g / n, b / n)
 }
 
 /**
  * 写真から指定した色のホールドを拾う。色相が近く、彩度・明るさが基準色に近いピクセルの塊を 1 つのホールドとする。
- * 画面の縁に接する塊は、壁の帯や画面外にはみ出したものなので除く。
- * shortcut: 色相だけで判定するので白・灰・黒のホールドは扱えない。必要になったら色差（Lab）で判定する
+ * 白・灰・黒は、色差（Lab）が近いピクセルを拾い、色付きのホールドの影やふち（周りが色の濃いピクセル）を除く。
+ * 画面の縁に接する塊は、壁の面や帯、画面外にはみ出したものなので除く（白い壁に白いホールドでも、壁は縁に接するので残らない）
+ * shortcut: 白・灰・黒では、照明で暗く見える紫・青のホールドや大きいホールドの陰も拾うことがある。触れていないホールドは番号が付かないので実害は小さい。困る例が出たら形（丸さ）でも絞る
  */
 export function findHolds(data: Uint8ClampedArray, width: number, height: number, color: Hsv): Hold[] {
   const n = width * height
   const mask = new Uint8Array(n)
   const minS = Math.max(MIN_SATURATION, color.s * 0.4)
   const minV = color.v * 0.35
+  const achromatic = isAchromatic(color)
+  const [L0, a0, b0] = rgbToLab(...hsvToRgb(color))
+  const colored = new Uint8Array(achromatic ? n : 0)
   for (let i = 0; i < n; i++) {
     const c = rgbToHsv(data[i * 4]!, data[i * 4 + 1]!, data[i * 4 + 2]!)
+    if (achromatic) {
+      const [L, a, b] = rgbToLab(data[i * 4]!, data[i * 4 + 1]!, data[i * 4 + 2]!)
+      if (Math.hypot(L - L0, a - a0, b - b0) <= LAB_TOLERANCE) mask[i] = 1
+      else if (c.s >= 0.4 && c.v >= 0.25) colored[i] = 1
+      continue
+    }
     const dh = Math.abs(c.h - color.h)
     if (Math.min(dh, 360 - dh) <= HUE_TOLERANCE && c.s >= minS && c.v >= minV) mask[i] = 1
   }
@@ -99,6 +139,8 @@ export function findHolds(data: Uint8ClampedArray, width: number, height: number
     let x1 = 0
     let y0 = height
     let y1 = 0
+    let rim = 0
+    let rimColored = 0
     while (head < tail) {
       const i = queue[head++]!
       const x = i % width
@@ -114,11 +156,15 @@ export function findHolds(data: Uint8ClampedArray, width: number, height: number
         if (j >= 0 && mask[j] === 1) {
           mask[j] = 2
           queue[tail++] = j
+        } else if (j >= 0 && mask[j] === 0) {
+          rim++
+          if (colored[j]) rimColored++
         }
       }
     }
     const touchesEdge = x0 === 0 || y0 === 0 || x1 === width - 1 || y1 === height - 1
-    if (tail < minPixels || touchesEdge) continue
+    const shadow = achromatic && rimColored > rim * SHADOW_RIM_RATIO
+    if (tail < minPixels || touchesEdge || shadow) continue
     holds.push({
       x: sx / tail / width,
       y: sy / tail / height,

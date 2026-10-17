@@ -19,13 +19,15 @@ export interface SessionRecord extends SessionMeta {
   advice: Advice[]
   thumbnail?: Blob
   hasVideo: boolean
-  /** 課題のホールド（3D 表示でタップした色と、最初のコマから拾った位置）。インデックスは不要なのでスキーマ変更なし */
+  /** 課題のホールド（3D 表示でタップした色と、選んだコマから拾った位置）。インデックスは不要なのでスキーマ変更なし */
   route?: SavedRoute
 }
 
 export interface SavedRoute {
   color: Hsv
   holds: Hold[]
+  /** 壁の写真に使ったコマの時刻（秒）。なければ最初のコマ */
+  t?: number
 }
 
 /** 姿勢時系列は一覧表示で読み込まないよう別テーブル */

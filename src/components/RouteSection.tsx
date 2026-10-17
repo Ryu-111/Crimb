@@ -1,7 +1,8 @@
-import { lazy, Suspense, useEffect, useMemo, useState } from 'react'
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { alignHolds, climbStart, findHolds, holdContacts, pickColor, routeOrder, wallTilt } from '../analysis/route'
 import type { PoseTrack } from '../analysis/types'
+import { stabilize } from '../analysis/camera'
 import type { Relief } from '../analysis/relief'
 import { grabFrame, loadVideo } from '../pose/video'
 import { db, type SavedRoute } from '../db/db'
@@ -29,10 +30,14 @@ interface Props {
 
 /**
  * 課題のホールドを 1 つタップすると、同じ色のホールドを拾って 3D で表示する。
- * shortcut: 壁の写真は動画の最初のコマを使う（登る前で体に隠れていないことが多いため）。隠れる動画が多ければコマを選べるようにする
+ * 壁の写真は最初のコマ（登る前で体に隠れていないことが多い）を使い、スライダーで別のコマも選べる
  */
 export default function RouteSection({ videoUrl, track, wallAngle, onSeek, route: saved, onRouteChange, problemName, sessionId }: Props) {
+  const [video, setVideo] = useState<HTMLVideoElement>()
+  const [frameT, setFrameT] = useState(saved?.t ?? 0)
   const [frame, setFrame] = useState<{ canvas: HTMLCanvasElement; url: string }>()
+  // シークが重なると別のコマが描かれることがあるので、コマの取り出しは 1 つずつ行う
+  const grabbing = useRef(Promise.resolve())
   const [error, setError] = useState<string>()
   const [picked, setPicked] = useState<SavedRoute | null>()
   // 未選択（undefined）なら保存済みの課題を使う。選び直し中は null
@@ -75,15 +80,39 @@ export default function RouteSection({ videoUrl, track, wallAngle, onSeek, route
   useEffect(() => {
     const live = { current: true }
     loadVideo(videoUrl)
-      .then((v) => grabFrame(v, 0, FRAME_WIDTH))
-      .then((canvas) => live.current && setFrame({ canvas, url: canvas.toDataURL('image/jpeg', 0.85) }))
+      .then((v) => live.current && setVideo(v))
       .catch(() => live.current && setError('動画からコマを取り出せませんでした'))
     return () => {
       live.current = false
     }
   }, [videoUrl])
 
-  const contacts = useMemo(() => (holds ? holdContacts(track, holds) : []), [track, holds])
+  useEffect(() => {
+    if (!video) return
+    const live = { current: true }
+    // スライダーを動かしている間は取り出さない
+    const timer = setTimeout(() => {
+      grabbing.current = grabbing.current
+        .then(() => (live.current ? grabFrame(video, frameT, FRAME_WIDTH) : undefined))
+        .then((canvas) => {
+          if (!canvas || !live.current) return
+          setFrame({ canvas, url: canvas.toDataURL('image/jpeg', 0.85) })
+          setRelief(undefined)
+        })
+        .catch(() => {
+          if (live.current) setError('動画からコマを取り出せませんでした')
+        })
+    }, 150)
+    return () => {
+      live.current = false
+      clearTimeout(timer)
+    }
+  }, [video, frameT])
+
+  // ホールドは壁の写真のコマの座標なので、手足もそのコマの座標に直してから比べる（カメラが動いても合う）
+  const photoT = route?.t ?? 0
+  const stable = useMemo(() => stabilize(track, photoT), [track, photoT])
+  const contacts = useMemo(() => (holds ? holdContacts(stable, holds) : []), [stable, holds])
   const order = useMemo(() => routeOrder(contacts), [contacts])
 
   const ghostSession = others?.find((s) => s.id === ghostId)
@@ -94,9 +123,10 @@ export default function RouteSection({ videoUrl, track, wallAngle, onSeek, route
     const t = alignHolds(ghostSession.route.holds, holds, aspectG, aspect)
     if (!t) return 'unaligned'
     const start = climbStart(contacts)
-    const startG = climbStart(holdContacts(ghostTrack, ghostSession.route.holds))
+    const ghostStable = stabilize(ghostTrack, ghostSession.route.t ?? 0)
+    const startG = climbStart(holdContacts(ghostStable, ghostSession.route.holds))
     return {
-      track: ghostTrack,
+      track: ghostStable,
       map: (x, y) => ({ x: t.s * x + t.tx, y: (t.s * y * aspectG + t.ty) / aspect }),
       offset: startG - start,
     }
@@ -110,13 +140,10 @@ export default function RouteSection({ videoUrl, track, wallAngle, onSeek, route
     const y = Math.round(((e.clientY - r.top) / r.height) * canvas.height)
     const img = canvas.getContext('2d', { willReadFrequently: true })!.getImageData(0, 0, canvas.width, canvas.height)
     const color = pickColor(img.data, canvas.width, canvas.height, x, y)
-    if (!color) {
-      setError('色がはっきりしたホールドをタップしてください（白・灰・黒のホールドには未対応です）')
-      return
-    }
+    if (!color) return
     const found = findHolds(img.data, canvas.width, canvas.height, color)
     setError(found.length ? undefined : 'この色のホールドが見つかりませんでした。別のホールドをタップしてください')
-    setRoute(found.length ? { holds: found, color } : undefined)
+    setRoute(found.length ? { holds: found, color, t: frameT } : undefined)
   }
 
   if (error && !frame) return <p className="text-sm text-slate-400">{error}</p>
@@ -127,6 +154,24 @@ export default function RouteSection({ videoUrl, track, wallAngle, onSeek, route
       {!holds ? (
         <>
           <p className="text-sm text-slate-300">課題のホールドを 1 つタップしてください。同じ色のホールドを拾って立体で表示します。</p>
+          {video && video.duration > 0 && (
+            <label className="block space-y-1 text-sm">
+              <span className="text-slate-300">
+                壁の写真に使うコマ（{frameT.toFixed(1)} 秒）
+                <span className="block text-xs text-slate-400">体でホールドが隠れていないコマを選ぶと、正しく拾えます</span>
+              </span>
+              <input
+                type="range"
+                min={0}
+                max={Math.floor(video.duration * 10) / 10}
+                step={0.1}
+                value={frameT}
+                onChange={(e) => setFrameT(Number(e.target.value))}
+                className="h-11 w-full accent-orange-500"
+                data-testid="route-frame-time"
+              />
+            </label>
+          )}
           <img
             src={frame.url}
             alt="壁の写真。課題のホールドをタップ"
@@ -144,7 +189,7 @@ export default function RouteSection({ videoUrl, track, wallAngle, onSeek, route
               color={route.color}
               contacts={contacts}
               order={order}
-              track={track}
+              track={stable}
               tilt={wallTilt(wallAngle)}
               ghost={typeof ghost === 'object' ? ghost : undefined}
               relief={relief}

@@ -26,9 +26,17 @@ export default function Settings() {
       }
       return
     }
-    // shortcut: Android アプリ（WebView）は <a download> を保存できない。@capacitor/filesystem 等を入れるまでは案内だけ出す
+    // Android アプリ（WebView）は <a download> も Web Share も使えないので、アプリの一時フォルダに書いて共有シートで渡す
     if (Capacitor.isNativePlatform()) {
-      setMessage('アプリ版ではまだ書き出しに対応していません', true)
+      try {
+        const [{ Directory, Encoding, Filesystem }, { Share }] = await Promise.all([import('@capacitor/filesystem'), import('@capacitor/share')])
+        const { uri } = await Filesystem.writeFile({ path: name, data: JSON.stringify(backup), directory: Directory.Cache, encoding: Encoding.UTF8 })
+        await Share.share({ title: name, files: [uri] })
+        setMessage(`${backup.sessions.length} 件を書き出しました`)
+      } catch (e) {
+        // 共有シートを閉じただけのときは何も出さない
+        if (!/cancel/i.test((e as Error).message)) setMessage(`書き出しに失敗しました: ${(e as Error).message}`, true)
+      }
       return
     }
     const a = document.createElement('a')

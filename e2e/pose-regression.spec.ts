@@ -11,6 +11,8 @@ import { join } from 'node:path'
 interface Expected {
   /** 解析前の全身チェックで警告が出るべきか */
   bodyWarning?: boolean
+  /** 解析前のカメラの動きのチェックで警告が出るべきか */
+  cameraWarning?: boolean
   metrics?: Record<string, [number, number]>
   adviceIncludes?: string[]
   adviceExcludes?: string[]
@@ -35,14 +37,16 @@ test.describe('@pose regression', () => {
       await page.getByTestId('video-input').setInputFiles(join(dir, file))
       test.setTimeout(900_000)
       await page.getByRole('button', { name: '解析スタート' }).click()
-      // 全身チェックの警告が出たら「このまま解析」で続ける（出たかどうかは結果に記録）
+      // 撮り方の警告が出たら「このまま解析」で続ける（出たかどうかは結果に記録）
       const proceed = page.getByRole('button', { name: 'このまま解析' })
       const first = await Promise.race([
         proceed.waitFor({ timeout: 600_000 }).then(() => 'warned' as const),
         page.waitForURL(/#\/result/, { timeout: 600_000 }).then(() => 'done' as const),
       ])
-      const bodyWarning = first === 'warned'
-      if (bodyWarning) await proceed.click()
+      // 警告は全身チェックとカメラの動きの 2 種類。どちらが出たかを文言で見分ける
+      const bodyWarning = first === 'warned' && (await page.getByText('全身が映っていないようです').isVisible())
+      const cameraWarning = first === 'warned' && (await page.getByText('カメラが動いているようです').isVisible())
+      if (first === 'warned') await proceed.click()
       await page.waitForURL(/#\/result/, { timeout: 600_000 })
       const result = (await page.evaluate(
         () => (globalThis as unknown as { __crimbLastAnalysis: unknown }).__crimbLastAnalysis,
@@ -55,13 +59,14 @@ test.describe('@pose regression', () => {
       writeFileSync(join(outDir, `${file}.track.json`), JSON.stringify(track))
       writeFileSync(
         join(outDir, `${file}.json`),
-        JSON.stringify({ bodyWarning, metrics: result.metrics, advice: result.advice.map((a) => a.id) }, null, 2),
+        JSON.stringify({ bodyWarning, cameraWarning, metrics: result.metrics, advice: result.advice.map((a) => a.id) }, null, 2),
       )
 
       const expPath = join(dir, file.replace(/\.[^.]+$/, '.expected.json'))
       if (!existsSync(expPath)) return
       const exp = JSON.parse(readFileSync(expPath, 'utf8')) as Expected
       if (exp.bodyWarning !== undefined) expect.soft(bodyWarning, 'bodyWarning').toBe(exp.bodyWarning)
+      if (exp.cameraWarning !== undefined) expect.soft(cameraWarning, 'cameraWarning').toBe(exp.cameraWarning)
       for (const [key, [min, max]] of Object.entries(exp.metrics ?? {})) {
         const v = result.metrics[key]
         expect.soft(v, `${key}`).not.toBeNull()

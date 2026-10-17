@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import * as THREE from 'three'
-import type { Contact, Hold, Hsv } from '../analysis/route'
+import { isAchromatic, type Contact, type Hold, type Hsv } from '../analysis/route'
 import { LM, segmentCom } from '../analysis/geometry'
 import type { PoseTrack } from '../analysis/types'
 import { reliefAt, type Relief } from '../analysis/relief'
@@ -96,8 +96,11 @@ export default function Route3D({ image, holds, contacts, order, track, tilt, co
   useEffect(() => {
     const el = host.current
     if (!el) return
-    // 写真の色のままだと暗いことがあるので、色相だけ使って見やすい明るさにそろえる
-    const HOLD = `#${new THREE.Color().setHSL(color.h / 360, 0.85, 0.6).getHexString()}`
+    // 写真の色のままだと暗いことがあるので、色相だけ使って見やすい明るさにそろえる。白・灰・黒は明るさだけ使う
+    const HOLD = `#${(isAchromatic(color)
+      ? new THREE.Color().setHSL(0, 0, Math.min(0.9, Math.max(0.2, color.v)))
+      : new THREE.Color().setHSL(color.h / 360, 0.85, 0.6)
+    ).getHexString()}`
     const W = 1
     const H = image.height / image.width
     const surface = (x: number, y: number) => (relief ? reliefAt(relief, x, y) : 0)

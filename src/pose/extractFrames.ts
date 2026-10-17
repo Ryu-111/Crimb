@@ -1,5 +1,6 @@
 import { dropImplausiblePoses, fullBodyVisible, isImplausible, poseAt, torsoLength } from '../analysis/geometry'
 import type { Frame, Landmark, PoseTrack } from '../analysis/types'
+import { trackCamera, toGray, type Gray } from '../analysis/camera'
 import { cropBox, uncrop } from './crop'
 import { getLandmarker } from './landmarker'
 import { seek } from './video'
@@ -25,16 +26,47 @@ export async function extractPoseTrack(video: HTMLVideoElement, opts: ExtractOpt
   const step = 1 / SAMPLE_FPS
   const total = Math.max(1, Math.floor(duration / step))
   const frames: Frame[] = []
+  const grays: Gray[] = []
+  const small = document.createElement('canvas')
+  small.width = CAMERA_TRACK_WIDTH
+  small.height = Math.round((video.videoHeight / video.videoWidth) * CAMERA_TRACK_WIDTH) || CAMERA_TRACK_WIDTH
+  const smallCtx = small.getContext('2d', { willReadFrequently: true })
   for (let i = 0; i <= total; i++) {
     if (opts.signal?.aborted) throw new DOMException('解析を中止しました', 'AbortError')
     const t = Math.min(i * step, duration)
     await seek(video, t)
     clock += step * 1000
     frames.push({ t, lm: detect(landmarker, video) })
+    if (smallCtx) {
+      smallCtx.drawImage(video, 0, 0, small.width, small.height)
+      grays.push(toGray(smallCtx.getImageData(0, 0, small.width, small.height).data, small.width, small.height))
+    }
     opts.onProgress?.(i / total)
   }
   const track: PoseTrack = { fps: SAMPLE_FPS, width: video.videoWidth, height: video.videoHeight, frames }
-  return { ...track, frames: cleanFrames(await redetect(landmarker, video, track, opts.signal)) }
+  const cleaned = cleanFrames(await redetect(landmarker, video, track, opts.signal))
+  return { ...track, frames: cleaned, camera: grays.length === cleaned.length ? cameraOffsets(grays, cleaned) : undefined }
+}
+
+/** カメラのずれを求める画像の幅（ピクセル） */
+const CAMERA_TRACK_WIDTH = 128
+
+/** コマごとのカメラのずれ（正規化画像座標）。人の写っている範囲は壁の模様ではないので比べない */
+function cameraOffsets(grays: Gray[], frames: Frame[]): { dx: number; dy: number }[] {
+  const masks = grays.map((g, i) => {
+    const lm = frames[i]?.lm
+    if (!lm) return undefined
+    const mask = new Uint8Array(g.width * g.height).fill(1)
+    const xs = lm.map((p) => p.x)
+    const ys = lm.map((p) => p.y)
+    const x0 = Math.max(0, Math.floor((Math.min(...xs) - 0.05) * g.width))
+    const x1 = Math.min(g.width, Math.ceil((Math.max(...xs) + 0.05) * g.width))
+    const y0 = Math.max(0, Math.floor((Math.min(...ys) - 0.05) * g.height))
+    const y1 = Math.min(g.height, Math.ceil((Math.max(...ys) + 0.05) * g.height))
+    for (let y = y0; y < y1; y++) mask.fill(0, y * g.width + x0, y * g.width + Math.max(x0, x1))
+    return mask
+  })
+  return trackCamera(grays, masks).map(({ dx, dy }, i) => ({ dx: dx / grays[i]!.width, dy: dy / grays[i]!.height }))
 }
 
 /** 検出し直すのは、正しい姿勢からこの秒数以内のフレームまで（戻した姿勢も次の手がかりにする） */

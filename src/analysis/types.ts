@@ -18,6 +18,11 @@ export interface PoseTrack {
   width: number
   height: number
   frames: Frame[]
+  /**
+   * コマごとのカメラのずれ（frames と同じ並び。最初のコマの壁の点 (x, y) がそのコマでは (x + dx, y + dy) に写る。正規化画像座標）。
+   * 古い記録にはない
+   */
+  camera?: { dx: number; dy: number }[]
 }
 
 export interface Segment {

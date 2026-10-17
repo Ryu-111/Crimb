@@ -2,6 +2,7 @@ import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { alignHolds, climbStart, findHolds, holdContacts, pickColor, routeOrder, wallTilt } from '../analysis/route'
 import type { PoseTrack } from '../analysis/types'
+import { stabilize } from '../analysis/camera'
 import type { Relief } from '../analysis/relief'
 import { grabFrame, loadVideo } from '../pose/video'
 import { db, type SavedRoute } from '../db/db'
@@ -108,7 +109,10 @@ export default function RouteSection({ videoUrl, track, wallAngle, onSeek, route
     }
   }, [video, frameT])
 
-  const contacts = useMemo(() => (holds ? holdContacts(track, holds) : []), [track, holds])
+  // ホールドは壁の写真のコマの座標なので、手足もそのコマの座標に直してから比べる（カメラが動いても合う）
+  const photoT = route?.t ?? 0
+  const stable = useMemo(() => stabilize(track, photoT), [track, photoT])
+  const contacts = useMemo(() => (holds ? holdContacts(stable, holds) : []), [stable, holds])
   const order = useMemo(() => routeOrder(contacts), [contacts])
 
   const ghostSession = others?.find((s) => s.id === ghostId)
@@ -119,9 +123,10 @@ export default function RouteSection({ videoUrl, track, wallAngle, onSeek, route
     const t = alignHolds(ghostSession.route.holds, holds, aspectG, aspect)
     if (!t) return 'unaligned'
     const start = climbStart(contacts)
-    const startG = climbStart(holdContacts(ghostTrack, ghostSession.route.holds))
+    const ghostStable = stabilize(ghostTrack, ghostSession.route.t ?? 0)
+    const startG = climbStart(holdContacts(ghostStable, ghostSession.route.holds))
     return {
-      track: ghostTrack,
+      track: ghostStable,
       map: (x, y) => ({ x: t.s * x + t.tx, y: (t.s * y * aspectG + t.ty) / aspect }),
       offset: startG - start,
     }
@@ -184,7 +189,7 @@ export default function RouteSection({ videoUrl, track, wallAngle, onSeek, route
               color={route.color}
               contacts={contacts}
               order={order}
-              track={track}
+              track={stable}
               tilt={wallTilt(wallAngle)}
               ghost={typeof ghost === 'object' ? ghost : undefined}
               relief={relief}

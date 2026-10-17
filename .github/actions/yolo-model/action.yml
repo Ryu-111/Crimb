@@ -1,0 +1,13 @@
+name: YOLO-pose のモデル
+description: Ultralytics 公式の yolo11n-pose.pt を ONNX に変換して public/models/ に置く（変換手順が変わるまでキャッシュを使う）
+runs:
+  using: composite
+  steps:
+    - id: cache
+      uses: actions/cache@v4
+      with:
+        path: public/models/yolo11n-pose.onnx
+        key: yolo11n-pose-onnx-${{ hashFiles('scripts/export-yolo.sh') }}
+    - if: steps.cache.outputs.cache-hit != 'true'
+      shell: bash
+      run: bash scripts/export-yolo.sh

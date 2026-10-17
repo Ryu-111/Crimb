@@ -33,6 +33,9 @@ jobs:
         with:
           path: public/mediapipe/models
           key: mediapipe-model-v1
+      # YOLO-pose のモデル（公式の重みから変換。キャッシュがなければ 1〜2 分かかる）
+      - uses: ./.github/actions/yolo-model
+        if: github.event.action != 'closed'
       - run: npm run build
         if: github.event.action != 'closed'
         # プレビューは本番と同じオリジンなので、IndexedDB を分けて本番の記録・動画に触れない

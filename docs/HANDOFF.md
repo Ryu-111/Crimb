@@ -15,16 +15,15 @@
 
 ### 進行中
 
-- **YOLO-pose の組み込み**（ブランチ `ccr-2578f9ba-cbz2gr`、PR はまだない）
+- **YOLO-pose の組み込み**（ブランチ `ccr-2578f9ba-cbz2gr`、PR を作成）
   - `src/pose/yolo.ts`: YOLO11n-pose を人の周りの切り抜き（320×320）で推定する。見失ったら、5 コマに 1 回だけ画面全体から探し直す。
   - `src/analysis/hybrid.ts`: COCO の 17 点を MediaPipe の 33 点の並びに変える。コマごとに MediaPipe と合わせる。
-  - `extractFrames` から呼んでいる。モデル `public/models/yolo11n-pose.onnx` がなければ、MediaPipe だけで解析する（今はモデルを取得する仕組みがないので、この状態）。
-  - 通過したチェック: lint / typecheck / test（84 件）/ build。E2E は未実行。
-  - **判断待ち: モデルの入手元**。どれにするかユーザーに確認中。
-    - A: CI で公式の `yolo11n-pose.pt` から ONNX に変換する。
-    - B: ユーザーが変換したファイルをコミットする。
-    - C: 第三者リポジトリの ONNX を使う。自動の安全確認に止められたので、ユーザーの許可が要る。
-  - ライセンス: YOLO11 は AGPL-3.0。ユーザーは了承済み（個人利用、コードは公開）。
+  - モデルの入手元: ユーザーの選択で A に決めた。CI で Ultralytics 公式の `yolo11n-pose.pt`（GitHub リリース v8.3.0、sha256 で確認）を ONNX に変換する。
+    - 変換手順: `scripts/export-yolo.sh`
+    - ワークフローから呼ぶ action: `.github/actions/yolo-model`（キャッシュ付き）
+  - 手元の環境では download.pytorch.org がブロックされていて、変換を試せていない。CI の初回の実行で確かめる。
+  - モデルがなければ MediaPipe だけで解析する。
+  - ライセンス: YOLO11 は AGPL-3.0。ユーザーは了承済み（個人利用、コードは公開）。README に明記した。
 - PR #20 / #21 はマージ済み（main `fdd01de`）
 
 ### 精度改善の状況

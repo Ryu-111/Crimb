@@ -43,6 +43,8 @@ jobs:
         with:
           path: public/mediapipe/models
           key: mediapipe-model-v1
+      # YOLO-pose のモデル（公式の重みから変換。キャッシュがなければ 1〜2 分かかる）
+      - uses: ./.github/actions/yolo-model
       - name: Web ビルド & Android へ同期
         run: npm run cap:sync
       - uses: actions/setup-java@v4

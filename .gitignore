@@ -24,3 +24,5 @@ pose-results
 CLAUDE-SECURITY-*/
 # ユーザーの実際の動画（精度の確認用。公開リポジトリなのでコミットしない）
 test-fixtures/private/
+# YOLO-pose のモデルは scripts/export-yolo.sh で公式の重みから変換する（コミットしない）
+public/models/

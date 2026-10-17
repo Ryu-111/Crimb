@@ -102,9 +102,15 @@ export function detectLimbMoves(track: PoseTrack, torso: number): LimbMove[] {
       x: ps.reduce((s, p) => s + p.x, 0) / ps.length,
       y: ps.reduce((s, p) => s + p.y, 0) / ps.length,
     })
+    // 前後 LIMB_STILL_WINDOW 秒の範囲だけを見る（全コマを毎回走査すると、長い動画で計算量がコマ数の二乗になる）。時刻は昇順
+    let lo = 0
+    let hi = 0
     const still = pts.map((p, i) => {
+      while (times[lo]! < times[i]! - LIMB_STILL_WINDOW - 1e-9) lo++
+      if (hi < i) hi = i
+      while (hi + 1 < times.length && times[hi + 1]! <= times[i]! + LIMB_STILL_WINDOW + 1e-9) hi++
       if (!p) return false
-      const near = pts.filter((q, k): q is Vec => q !== null && Math.abs(times[k]! - times[i]!) <= LIMB_STILL_WINDOW)
+      const near = pts.slice(lo, hi + 1).filter((q): q is Vec => q !== null)
       if (near.length < 3) return false
       const c = center(near)
       return near.every((q) => Math.hypot(q.x - c.x, q.y - c.y) / torso <= LIMB_STILL_RADIUS)

@@ -1,5 +1,6 @@
 {
   "bodyWarning": false,
+  "cameraWarning": true,
   "metrics": {
     "detectionRate": [0.9, 1],
     "handMoves": [8, 18],

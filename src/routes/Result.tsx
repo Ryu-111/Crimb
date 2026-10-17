@@ -77,7 +77,7 @@ function ResultView({ meta, createdAt, track, analysis, videoUrl, route, onRoute
         </h2>
         <MetricGrid metrics={metrics} previous={previous?.metrics} />
         {previous && (
-          <Link to={`/problem/${encodeURIComponent(meta.problemName)}`} className="mt-2 block text-sm text-accent">
+          <Link to={`/problem/${encodeURIComponent(meta.problemName)}`} className="mt-2 flex min-h-11 items-center text-sm text-accent">
             この課題のトライをすべて比較 →
           </Link>
         )}
@@ -226,10 +226,10 @@ export function SavedResult() {
         <div className="space-y-3 rounded-xl bg-slate-800/50 p-4">
           <MetaFields meta={editing} onChange={setEditing} />
           <div className="grid grid-cols-2 gap-2">
-            <button className="rounded-lg bg-slate-800 py-2" onClick={() => setEditing(undefined)}>
+            <button className="min-h-11 rounded-lg bg-slate-800 py-2" onClick={() => setEditing(undefined)}>
               キャンセル
             </button>
-            <button className="rounded-lg bg-accent py-2 font-bold text-slate-950" onClick={saveEdit}>
+            <button className="min-h-11 rounded-lg bg-accent py-2 font-bold text-slate-950" onClick={saveEdit}>
               変更を保存
             </button>
           </div>
@@ -250,7 +250,7 @@ export function SavedResult() {
           記録を編集
         </button>
       )}
-      <button className="w-full rounded-lg border border-rose-500/50 py-2 text-sm text-rose-400" onClick={remove}>
+      <button className="min-h-11 w-full rounded-lg border border-rose-500/50 py-2 text-sm text-rose-400" onClick={remove}>
         この記録を削除
       </button>
     </ResultView>

@@ -26,7 +26,7 @@ export default function Problem() {
               <th className="sticky left-0 bg-slate-900 p-2 text-left font-normal">指標</th>
               {sessions.map((s) => (
                 <th key={s.id} className="p-2 text-right font-normal whitespace-nowrap">
-                  <Link to={`/session/${s.id}`} className="underline">
+                  <Link to={`/session/${s.id}`} className="inline-flex min-h-11 items-center underline">
                     {formatDate(s.createdAt)}
                   </Link>
                   <div className={s.sent ? 'text-lime-400' : ''}>{s.sent ? '完登' : 'トライ'}</div>

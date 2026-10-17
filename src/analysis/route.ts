@@ -36,6 +36,8 @@ export const LAB_TOLERANCE = 12
 export const SHADOW_RIM_RATIO = 0.2
 /** これより小さい塊はホールドとみなさない（画面に占める割合） */
 export const MIN_HOLD_AREA = 0.00008
+/** 外接枠の縦横比（長い辺 / 短い辺）がこれを超える塊は、ホールドのふちや壁の継ぎ目の帯とみなして除く。garrett の実ホールドは最大 2.7、a の紫のふちの帯は約 6 */
+export const MAX_HOLD_ASPECT = 5
 /** 手足の位置からホールドの縁までこの距離（画面幅に対する割合）以内なら触れている */
 export const CONTACT_DISTANCE = 0.035
 /** この秒数以上触れていたら、そのホールドを使ったとみなす */
@@ -164,7 +166,10 @@ export function findHolds(data: Uint8ClampedArray, width: number, height: number
     }
     const touchesEdge = x0 === 0 || y0 === 0 || x1 === width - 1 || y1 === height - 1
     const shadow = achromatic && rimColored > rim * SHADOW_RIM_RATIO
-    if (tail < minPixels || touchesEdge || shadow) continue
+    const bw = x1 - x0 + 1
+    const bh = y1 - y0 + 1
+    const thin = Math.max(bw, bh) > Math.min(bw, bh) * MAX_HOLD_ASPECT
+    if (tail < minPixels || touchesEdge || shadow || thin) continue
     holds.push({
       x: sx / tail / width,
       y: sy / tail / height,

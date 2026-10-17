@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { alignHolds, findHolds, holdContacts, pickColor, rgbToHsv, routeOrder, wallTilt, type Hold } from './route'
+import { alignHolds, findHolds, holdContacts, isAchromatic, pickColor, rgbToHsv, routeOrder, wallTilt, type Hold } from './route'
 import type { Frame, Landmark, PoseTrack } from './types'
 
 /** 背景がベージュで、ピンクの塊と青の塊がある画像 */
@@ -28,10 +28,9 @@ describe('hold detection', () => {
     { x: 0, y: 190, r: 8, rgb: PINK }, // 画面の縁に接する（壁の帯など）
   ])
 
-  it('picks the colour under the tap and rejects grey', () => {
+  it('picks the colour under the tap', () => {
     expect(pickColor(data, w, h, 30, 40)!.h).toBeCloseTo(rgbToHsv(...PINK).h, 0)
-    const grey = image(10, 10, [{ x: 5, y: 5, r: 5, rgb: [128, 128, 128] }])
-    expect(pickColor(grey, 10, 10, 5, 5)).toBeNull()
+    expect(isAchromatic(pickColor(data, w, h, 30, 40)!)).toBe(false)
   })
 
   it('finds only the holds of the picked colour, away from the frame edge', () => {
@@ -42,6 +41,33 @@ describe('hold detection', () => {
     expect(a!.y).toBeCloseTo(0.2, 2)
     expect(b!.y).toBeCloseTo(0.6, 2)
     expect(b!.area).toBeGreaterThan(a!.area)
+  })
+})
+
+describe('white, grey and black holds', () => {
+  const w = 100
+  const h = 200
+  const WHITE: [number, number, number] = [240, 238, 236]
+  const BLACK: [number, number, number] = [30, 30, 34]
+  const data = image(w, h, [
+    { x: 30, y: 40, r: 6, rgb: WHITE },
+    { x: 70, y: 120, r: 8, rgb: WHITE },
+    { x: 40, y: 160, r: 7, rgb: BLACK },
+    { x: 60, y: 60, r: 7, rgb: [128, 128, 128] },
+    { x: 50, y: 90, r: 7, rgb: PINK },
+  ])
+
+  it('tells them apart by brightness instead of hue', () => {
+    const white = pickColor(data, w, h, 30, 40)!
+    expect(isAchromatic(white)).toBe(true)
+    expect(findHolds(data, w, h, white).map((x) => Math.round(x.y * h))).toEqual([40, 120])
+    expect(findHolds(data, w, h, pickColor(data, w, h, 40, 160)!).map((x) => Math.round(x.y * h))).toEqual([160])
+    expect(findHolds(data, w, h, pickColor(data, w, h, 60, 60)!).map((x) => Math.round(x.y * h))).toEqual([60])
+  })
+
+  it('does not pick up the wall itself (it touches the frame edge)', () => {
+    // 壁（ベージュ）をタップしても、壁は画面の縁に接するのでホールドにならない
+    expect(findHolds(data, w, h, pickColor(data, w, h, 5, 5)!)).toEqual([])
   })
 })
 

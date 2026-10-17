@@ -110,10 +110,7 @@ export default function RouteSection({ videoUrl, track, wallAngle, onSeek, route
     const y = Math.round(((e.clientY - r.top) / r.height) * canvas.height)
     const img = canvas.getContext('2d', { willReadFrequently: true })!.getImageData(0, 0, canvas.width, canvas.height)
     const color = pickColor(img.data, canvas.width, canvas.height, x, y)
-    if (!color) {
-      setError('色がはっきりしたホールドをタップしてください（白・灰・黒のホールドには未対応です）')
-      return
-    }
+    if (!color) return
     const found = findHolds(img.data, canvas.width, canvas.height, color)
     setError(found.length ? undefined : 'この色のホールドが見つかりませんでした。別のホールドをタップしてください')
     setRoute(found.length ? { holds: found, color } : undefined)

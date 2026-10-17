@@ -21,6 +21,8 @@
   },
   "dependencies": {
     "@capacitor/core": "^8.5.3",
+    "@capacitor/filesystem": "^8.1.5",
+    "@capacitor/share": "^8.0.3",
     "@mediapipe/tasks-vision": "^1.1.0",
     "chart.js": "^4.5.1",
     "dexie": "^4.4.6",

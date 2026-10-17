@@ -28,7 +28,7 @@ PR を出すと CI / E2E / Lighthouse / プレビュー / APK が自動で走る
 - [x] **テスト拡充**: `segments.ts` の境界値、`smoothing.ts` の長い欠損、`rules.ts` の各しきい値ちょうどのケース
 - [x] **E2E 追加**: 全削除、成長グラフ表示、インポート（重複スキップ）・エクスポート（`e2e/backup.spec.ts`）
 
-- [ ] **APK 版のバックアップ書き出し**: Android WebView は blob のダウンロード不可。`@capacitor/filesystem` + `@capacitor/share` で保存/共有（今は「アプリ版では未対応」と表示）
+- [x] **APK 版のバックアップ書き出し**: Android WebView は blob のダウンロード不可なので、`@capacitor/filesystem` でアプリの一時フォルダに書き、`@capacitor/share` の共有シートで保存先（Google ドライブ・ファイルなど）に渡す
 
 ## Claude 向け
 
@@ -44,5 +44,6 @@ PR を出すと CI / E2E / Lighthouse / プレビュー / APK が自動で走る
 - [x] **課題の 3D 表示**: 結果画面で課題のホールドを 1 つタップ → 同じ色のホールドを拾い、触れた順の番号・手足の経路・骨格を three.js で表示（`src/analysis/route.ts`, `src/components/Route3D.tsx`）
 - [x] **振り返りの強化**: 部位の質量比による重心推定と軌跡、手足の軌跡、同じ課題の別トライの重ね合わせ（ホールドの位置で写真を合わせ、最初に触れた時刻で再生をそろえる）、選んだ課題の保存
 - [x] **壁の凹凸（写真 1 枚から奥行き推定）**: Depth Anything V2 Small（int8、約 27MB、Apache-2.0）を onnxruntime-web で端末内実行し、3D の壁を凹凸のある面にする（`src/analysis/relief.ts`, `src/pose/depth*.ts`）。CI の `@pose depth` で実モデルを確認
-- [ ] **課題の 3D 表示の改善**: 白・灰・黒のホールド（色差で判定）、壁の写真に使うコマの選択
+- [x] **課題の 3D 表示の改善**: 白・灰・黒のホールド（Lab の色差で判定し、色付きホールドの影を除く）、壁の写真に使うコマの選択（スライダー、課題と一緒に保存）
+- [x] **カメラの動きの検出**: 解析前に 8 コマのずれを調べ、画面幅の 8% 以上動いていたら撮り直しを勧める（`src/analysis/camera.ts`）
 - [x] **ムーブ単位の振り返り**: ムーブごとにサムネと所要時間を並べ、「一番苦戦したムーブ」を表示

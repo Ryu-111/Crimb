@@ -19,7 +19,7 @@ jobs:
     needs: android
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: android-release
           path: out

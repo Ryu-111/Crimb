@@ -39,8 +39,9 @@ export default function Analyze() {
         const video = await loadVideo(draft.url)
         setTruncated(video.duration > MAX_DURATION_SEC)
         setStage('撮影範囲を確認中…')
-        const body = !(await checkFullBody(video))
+        // カメラの確認を先にする。全身チェック（姿勢推定）の直後に姿勢の追跡へ入る順番を変えないため
         const camera = (await cameraShift(video)) > CAMERA_SHIFT_LIMIT
+        const body = !(await checkFullBody(video))
         if (body || camera) {
           setWarnings({ body, camera })
           await new Promise<void>((resolve) => setProceed(() => resolve))

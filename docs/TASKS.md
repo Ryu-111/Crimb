@@ -15,6 +15,7 @@ PR を出すと CI / E2E / Lighthouse / プレビュー / APK が自動で走る
 - [x] Capacitor Android、GitHub Actions 一式、Dependabot
 - [x] Ponytail + Context Mode プラグインを `.claude/settings.json` に登録（手順は docs/jev-router.md）
 - [x] Claude Security プラグインを `.claude/settings.json` に登録し、差分スキャンを回す場面を AGENTS.md に記載
+- [x] pstack プラグインを `.claude/settings.json` に登録し、AGENTS.md の規約との優先順位を記載
 
 ## Codex 向け
 

@@ -2,6 +2,7 @@
 import * as ort from 'onnxruntime-web/wasm'
 import type { Landmark } from '../analysis/types'
 import { cocoToMediapipe, decodeYolo, type YoloPerson } from '../analysis/hybrid'
+import { searchBox } from './crop'
 
 /** scripts/fetch-models.mjs が public/models/ に置く */
 const MODEL_PATH = 'models/yolo11n-pose.onnx'
@@ -82,6 +83,21 @@ export class YoloTracker {
       ? people.reduce((a, b) => (dist(b, prev) - b.score * prev.size < dist(a, prev) - a.score * prev.size ? b : a))
       : people.reduce((a, b) => (b.score > a.score ? b : a))
     this.prev = { cx: best.box.cx, cy: best.box.cy, size: Math.max(best.box.w, best.box.h) * ROI_SCALE }
+    return cocoToMediapipe(best.kp.map((p) => ({ x: p.x / W, y: p.y / H, v: p.v })))
+  }
+
+  /**
+   * 直前に分かっている姿勢 near（正規化画像座標）の周りを狭く切り抜き、拡大して探す。追跡の状態は変えない。
+   * MediaPipe も追跡も見失ったコマだけに使う（強い傾斜の下で体を丸めた、小さく暗い人を拾う）
+   */
+  async search(video: HTMLVideoElement, near: Landmark[]): Promise<Landmark[] | null> {
+    const W = video.videoWidth
+    const H = video.videoHeight
+    const b = searchBox(near, W, H, FULL_INPUT)
+    const people = (await this.run(video, b.x, b.y, b.size, b.size, b.input, b.input)).map((p) => toFrame(p, b.x, b.y, b.size / b.input))
+    if (!people.length) return null
+    const c = { cx: b.x + b.size / 2, cy: b.y + b.size / 2 }
+    const best = people.reduce((x, y) => (dist(y, c) - y.score * b.size < dist(x, c) - x.score * b.size ? y : x))
     return cocoToMediapipe(best.kp.map((p) => ({ x: p.x / W, y: p.y / H, v: p.v })))
   }
 

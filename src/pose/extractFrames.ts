@@ -11,6 +11,8 @@ import { cleanFrames } from './smoothing'
 export const SAMPLE_FPS = 15
 /** 解析する動画の最大長 (秒) */
 export const MAX_DURATION_SEC = 180
+/** 両方のモデルが見失ったとき、直前の姿勢からこのコマ数（約 2 秒）以内なら、その周りを探し直す */
+export const SEARCH_MAX_GAP = 30
 
 /** detectForVideo のタイムスタンプは解析をまたいで単調増加させる必要がある */
 let clock = 0
@@ -35,13 +37,22 @@ export async function extractPoseTrack(video: HTMLVideoElement, opts: ExtractOpt
   small.width = CAMERA_TRACK_WIDTH
   small.height = Math.round((video.videoHeight / video.videoWidth) * CAMERA_TRACK_WIDTH) || CAMERA_TRACK_WIDTH
   const smallCtx = small.getContext('2d', { willReadFrequently: true })
+  // 直前に分かっている姿勢（MediaPipe か YOLO）。両方が見失ったコマで探し直す手がかりにする
+  let last: { i: number; lm: Landmark[] } | null = null
   for (let i = 0; i <= total; i++) {
     if (opts.signal?.aborted) throw new DOMException('解析を中止しました', 'AbortError')
     const t = Math.min(i * step, duration)
     await seek(video, t)
     clock += step * 1000
-    frames.push({ t, lm: detect(landmarker, video) })
-    if (yolo) yoloFrames.push(await yolo.detect(video))
+    const lm = detect(landmarker, video)
+    frames.push({ t, lm })
+    if (yolo) {
+      let y = await yolo.detect(video)
+      if (!lm && !y && last && i - last.i <= SEARCH_MAX_GAP) y = await yolo.search(video, last.lm)
+      yoloFrames.push(y)
+      const known = mergePose(lm, y)
+      if (known) last = { i, lm: known }
+    }
     if (smallCtx) {
       smallCtx.drawImage(video, 0, 0, small.width, small.height)
       grays.push(toGray(smallCtx.getImageData(0, 0, small.width, small.height).data, small.width, small.height))

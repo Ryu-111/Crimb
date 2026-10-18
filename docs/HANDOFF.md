@@ -30,6 +30,15 @@
 - 動画（`test-fixtures/private/web/` の w1・w2）は push していない。評価キットとユーザーの a / b は未入手
 - 夜間に追加で使ったローカルの道具（コミットしていない）: `test-fixtures/private/exp/`（視差の実験、ホールド検出の枠描画）
 
+### カメラの動きの警告（ブランチ `claude/fix-camera-warning-608aa3`）
+
+- 変更: 解析前の判定を「8 コマのずれの最大値 > 0.08」から「中央値 > 0.10」に（`medianCameraShift`）。`trackCamera` / `stabilize` は変えていないので、`PoseTrack.camera` と、それを使う指標・3D 表示は変わらない（sample0・sample3 の記録済みのずれの範囲が main と同じ値: dx 7.8 / dy 2.6 %、dx 7.0 / dy 9.2 %）
+- 原因: 「人の動きを壁の動きと取り違えている」仮説は外れ。壁を 24px の区画に分けて区画ごとにずれを探した中央値（240px 幅、24 コマ）は、今の推定と ±1px で一致した。sample0 は実際にゆっくり 8% ほど横にずれている（上下左右の区画で同じずれ＝平行移動）。最大値で見ていたので、手持ちのゆっくりしたずれや、撮り終わりの持ち上げ（sample2 の最後の 25%）で 0.08 を超えていた
+- 正解（目視＋区画ごとのずれ、N=9）: 追いかけ撮り＝w1・w2・eric・sample_lead1。それ以外（garrett・sample0〜3）は全体が写り続ける手持ち／固定。sample3 は登っている間に上下に ±9% 揺れるが追いかけてはいない、という判断（ここは見方が分かれうる）
+- 結果（中央値、ffmpeg で 96px に縮めた 8 コマで計算）: 追いかけ撮り 0.125〜0.163、それ以外 0.015〜0.073。正解との一致は main 7/9 → 9/9（sample3 を「動いている」と数えると 8/9 → 8/9）
+- アプリ上（Playwright `@pose`、ポート 4176、YOLO あり）: eric true・garrett false（expected どおり）、sample0〜3 すべて false、w1・w2 true。sample_lead1 は解析が 10 分を超えて `waitForURL` がタイムアウト（カメラとは無関係）。警告画面だけを見る一時テストで camera true を確認
+- 確認: lint / typecheck / test（99 件）/ build 通過
+
 ### 測った数値（アプリ上、Playwright の `@pose` で解析。w1: 204×360 の室内ボルダリング 46 秒、w2: 1080p の室内壁 26 秒。出典は Wikimedia Commons。2026-10-18 01:10 JST、YOLO モデルの有無で比較）
 
 | 動画 | モデル | 検出率 | 手 | 足 | ムーブ |

@@ -2,6 +2,7 @@
 import * as ort from 'onnxruntime-web/wasm'
 import type { Landmark } from '../analysis/types'
 import { cocoToMediapipe, decodeYolo, type YoloPerson } from '../analysis/hybrid'
+import { cutOff, pickPerson } from '../analysis/person'
 import { searchBox } from './crop'
 
 /** scripts/fetch-models.mjs が public/models/ に置く */
@@ -40,6 +41,8 @@ function load(): Promise<ort.InferenceSession> {
 export class YoloTracker {
   private prev: { cx: number; cy: number; size: number } | null = null
   private lost = 0
+  /** 縁で切れた人を追い続けているコマ数 */
+  private cut = 0
   private readonly canvas = document.createElement('canvas')
   private readonly ctx = this.canvas.getContext('2d', { willReadFrequently: true })!
 
@@ -65,23 +68,23 @@ export class YoloTracker {
       const y0 = Math.min(Math.max(this.prev.cy - size / 2, 0), H - size)
       people = (await this.run(video, x0, y0, size, size, ROI_INPUT, ROI_INPUT)).map((p) => toFrame(p, x0, y0, size / ROI_INPUT))
     }
-    if (!people.length && this.lost % FULL_EVERY === 0) {
-      const s = FULL_INPUT / Math.max(W, H)
-      const w = Math.round(W * s)
-      const h = Math.round(H * s)
-      people = (await this.run(video, 0, 0, W, H, w, h)).map((p) => toFrame(p, 0, 0, 1 / s))
-    }
+    if (!people.length && this.lost % FULL_EVERY === 0) people = await this.full(video)
     if (!people.length) {
       this.prev = null
       this.lost++
       return null
     }
     this.lost = 0
-    // 前のコマの人に近い候補を選ぶ（壁の模様を人と取り違えても、追っている人から乗り移らない）
+    // 前のコマの人に近い候補を選ぶ（壁の模様を人と取り違えても、追っている人から乗り移らない）。
+    // 見失っていたら、手前で縁に切れている人（見ている人・ビレイヤー）より全身が写る人を選ぶ
     const prev = this.prev
-    const best = prev
+    let best = prev
       ? people.reduce((a, b) => (dist(b, prev) - b.score * prev.size < dist(a, prev) - a.score * prev.size ? b : a))
-      : people.reduce((a, b) => (b.score > a.score ? b : a))
+      : pickPerson(people, W, H)!
+    // 追っている人が縁で切れていたら、手前を横切った人に乗り移ったかもしれない。ときどき画面全体から全身が写る人を探し直す
+    if (prev && cutOff(best, W, H)) {
+      if (this.cut++ % FULL_EVERY === 0) best = pickPerson([best, ...(await this.full(video))], W, H)!
+    } else this.cut = 0
     this.prev = { cx: best.box.cx, cy: best.box.cy, size: Math.max(best.box.w, best.box.h) * ROI_SCALE }
     return cocoToMediapipe(best.kp.map((p) => ({ x: p.x / W, y: p.y / H, v: p.v })))
   }
@@ -99,6 +102,14 @@ export class YoloTracker {
     const c = { cx: b.x + b.size / 2, cy: b.y + b.size / 2 }
     const best = people.reduce((x, y) => (dist(y, c) - y.score * b.size < dist(x, c) - x.score * b.size ? y : x))
     return cocoToMediapipe(best.kp.map((p) => ({ x: p.x / W, y: p.y / H, v: p.v })))
+  }
+
+  /** 画面全体から人を探す */
+  private async full(video: HTMLVideoElement): Promise<YoloPerson[]> {
+    const W = video.videoWidth
+    const H = video.videoHeight
+    const s = FULL_INPUT / Math.max(W, H)
+    return (await this.run(video, 0, 0, W, H, Math.round(W * s), Math.round(H * s))).map((p) => toFrame(p, 0, 0, 1 / s))
   }
 
   /** 動画の (sx, sy, sw, sh) を w × h に縮めて推定する。入力は 32 の倍数に灰色で埋める */

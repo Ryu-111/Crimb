@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { estimateShift, maxCameraShift, stabilize, toGray, trackCamera, type Gray } from './camera'
+import { estimateShift, medianCameraShift, stabilize, toGray, trackCamera, type Gray } from './camera'
 import type { PoseTrack } from './types'
 
 /** 壁の模様（ランダムな明るさの点）を (ox, oy) だけずらして撮った画像。person があれば、その位置に人の塊を描く */
@@ -32,10 +32,15 @@ describe('camera motion', () => {
     expect(estimateShift(a, wall(4, 0, { x: 60, y: 60 }))).toEqual({ dx: -4, dy: 0 })
   })
 
-  it('reports the largest move from the first frame as a share of the width', () => {
-    expect(maxCameraShift([wall(0, 0), wall(0, 0, { x: 50, y: 80 })])).toBe(0)
-    expect(maxCameraShift([wall(0, 0), wall(3, 0), wall(9, 0)])).toBeCloseTo(9 / 96, 5)
-    expect(maxCameraShift([])).toBe(0)
+  it('reports the median move from the first frame as a share of the width', () => {
+    expect(medianCameraShift([wall(0, 0), wall(0, 0, { x: 50, y: 80 }), wall(0, 0, { x: 20, y: 40 })])).toBe(0)
+    // 人を追いかけて撮ると、ほとんどのコマが最初からずれたまま
+    expect(medianCameraShift([wall(0, 0), wall(3, 0), wall(9, 0), wall(9, 4)])).toBeCloseTo(9 / 96, 5)
+    expect(medianCameraShift([])).toBe(0)
+  })
+
+  it('ignores a short move such as picking the phone up at the end', () => {
+    expect(medianCameraShift([wall(0, 0), wall(0, 0), wall(0, 0), wall(0, 0), wall(10, 6)])).toBe(0)
   })
 
   it('converts RGBA to grey', () => {

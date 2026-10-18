@@ -13,7 +13,7 @@
 
 ## 現在（2026-10-18 更新: Claude Code・夜間の自律作業）
 
-### 追う人の取り違え（ブランチ `claude/fix-climber-tracking-e73faf`、2026-10-18 13:20 JST）
+### 追う人の取り違え（#34、ブランチ `claude/fix-climber-tracking-e73faf`、マージ待ち。最後に通したチェック: lint・typecheck・test・build・e2e @pose（garrett / eric）、2026-10-18 13:20 JST）
 
 - 原因: YOLO は見失ったとき確からしさ最大の人を選び、以後は前のコマの近くだけを見る。手前を横切った人・ビレイヤー（大きく写るので確からしさが高い）に一度乗り移ると戻らない
 - 修正: 体が画面の下・左右の縁で切れている人の確からしさを 0.3 倍して選ぶ（`src/analysis/person.ts`）。追っている人が縁で切れていたら 5 コマに 1 回画面全体から探し直す（`src/pose/yolo.ts`）。縁の判定だけでは sample2 / lead1 とも変化なし、探し直しを足して効いた

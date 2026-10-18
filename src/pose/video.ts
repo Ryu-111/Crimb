@@ -1,5 +1,5 @@
 // 動画の読み込み・シーク・コマの取り出し（MediaPipe に依存しないので結果画面からも使える）
-import { CAMERA_CHECK_WIDTH, maxCameraShift, toGray, type Gray } from '../analysis/camera'
+import { CAMERA_CHECK_WIDTH, medianCameraShift, toGray, type Gray } from '../analysis/camera'
 
 /** イベントが来ないまま止まる端末があるため、待ち時間の上限 (ms) */
 const LOAD_TIMEOUT_MS = 15_000
@@ -69,7 +69,7 @@ export async function captureThumbnail(video: HTMLVideoElement, t: number, width
   return new Promise((resolve) => canvas.toBlob((b) => resolve(b ?? undefined), 'image/jpeg', 0.7))
 }
 
-/** 動画全体から count コマを小さく取り出し、カメラが最初のコマから最も大きくずれた量（画像の幅に対する割合） */
+/** 動画全体から count コマを小さく取り出し、最初のコマからのカメラのずれの中央値（画像の幅に対する割合） */
 export async function cameraShift(video: HTMLVideoElement, count = 8): Promise<number> {
   const d = Math.max(0, (video.duration || 0) - 0.1)
   const frames: Gray[] = []
@@ -78,5 +78,5 @@ export async function cameraShift(video: HTMLVideoElement, count = 8): Promise<n
     const img = canvas.getContext('2d', { willReadFrequently: true })?.getImageData(0, 0, canvas.width, canvas.height)
     if (img) frames.push(toGray(img.data, img.width, img.height))
   }
-  return maxCameraShift(frames)
+  return medianCameraShift(frames)
 }

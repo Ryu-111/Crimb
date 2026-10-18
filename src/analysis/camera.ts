@@ -8,8 +8,11 @@
 export const CAMERA_CHECK_WIDTH = 96
 /** 調べるずれの最大（画像の幅に対する割合） */
 export const MAX_SHIFT = 0.12
-/** 最初のコマからこれ以上ずれたらカメラが動いたとみなす（画像の幅に対する割合）。手持ちで少し傾いた garrett（約 0.06）は通し、追いかけて撮った eric（0.16 以上）は止める */
-export const CAMERA_SHIFT_LIMIT = 0.08
+/**
+ * 間引いたコマの半分以上が、最初のコマからこれ以上ずれていたらカメラが動いたとみなす（画像の幅に対する割合）。
+ * 手持ちでゆっくりずれた sample0・garrett（中央値 0.06 以下）は通し、人を追いかけて撮った eric・w1・w2（0.12 以上）は止める
+ */
+export const CAMERA_SHIFT_LIMIT = 0.1
 
 import type { PoseTrack } from './types'
 
@@ -130,16 +133,20 @@ function halveMask(m: Uint8Array, g: Gray): Uint8Array {
 }
 
 /**
- * 間引いたコマのうち、最初のコマから最も大きくずれた量（画像の幅に対する割合）。
+ * 間引いたコマの、最初のコマからのずれの中央値（画像の幅に対する割合）。
+ * 最大値ではなく中央値を見る。手持ちでゆっくりずれたり、撮り終わりにスマホを持ち上げたりした一時のずれでは警告せず、人を追いかけて撮ったときだけ大きくなる
  * shortcut: 平行移動だけを見る（ズーム・回転は見ない）。スマホを手で持って撮ると主に平行移動になるため。ズームの誤検出が出たら拡大率も探す
  */
-export function maxCameraShift(frames: Gray[]): number {
+export function medianCameraShift(frames: Gray[]): number {
   const [first, ...rest] = frames
   if (!first) return 0
-  return Math.max(0, ...rest.map((f) => {
-    const { dx, dy } = estimateShift(first, f)
-    return Math.hypot(dx, dy) / first.width
-  }))
+  const shifts = rest
+    .map((f) => {
+      const { dx, dy } = estimateShift(first, f)
+      return Math.hypot(dx, dy) / first.width
+    })
+    .sort((a, b) => a - b)
+  return shifts[shifts.length >> 1] ?? 0
 }
 
 /**

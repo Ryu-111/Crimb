@@ -31,7 +31,7 @@ jobs:
           temporaryPublicStorage: true
       - name: スコアを PR にコメント
         if: always() && steps.lhci.outputs.manifest
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         env:
           MANIFEST: ${{ steps.lhci.outputs.manifest }}
           LINKS: ${{ steps.lhci.outputs.links }}

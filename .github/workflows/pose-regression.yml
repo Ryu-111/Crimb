@@ -34,7 +34,7 @@ jobs:
       - run: npm ci
       - name: 合成クライマーでの解析テスト
         run: npx vitest run src/analysis
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         with:
           path: public/mediapipe/models
           key: mediapipe-model-v1

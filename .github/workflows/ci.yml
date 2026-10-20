@@ -37,7 +37,7 @@ jobs:
             console.log(["### 解析ロジックのカバレッジ", "| 種別 | 率 | 件数 |", "|---|---|---|",
               ...["lines", "statements", "functions", "branches"].map(row)].join("\n"));
           ' >> "$GITHUB_STEP_SUMMARY"
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         with:
           path: public/mediapipe/models
           key: mediapipe-model-v1

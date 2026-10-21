@@ -13,6 +13,14 @@
 
 ## 現在（2026-10-18 更新: Claude Code・夜間の自律作業）
 
+### 依存の脆弱性（ブランチ `ccr-2578f9ba-cbz2gr`、2026-10-21 Claude Code。PR は未作成）
+
+- `npm audit` の指摘は 1 件: `uuid@7.0.3`（GHSA-w5hq-g745-h8pq、moderate）。`@capacitor/cli` → `xcode@3.0.1` → `uuid` の経路で、Android ビルド用の CLI の中だけ。アプリには入らない
+- `npm audit fix --force` は `@capacitor/cli` を 8.4.3 に下げる破壊的な変更なので使わず、`package.json` の `overrides` で `uuid` を `^11.1.1` にした
+  - 12 以降ではなく 11 にしたのは、`xcode` が `require('uuid').v4()` で読むため（11 は CommonJS の出口がある）
+- 確認: `npm audit` 0 件、`xcode` の `generateUuid()` が動く、`npx cap sync android` 成功、lint / typecheck / test（108 件）/ build 通過
+- Claude Security の差分スキャンは未実施（依存の追加ではなく版の固定のため。必要ならユーザーの了承を得て回す）
+
 ### 追う人の取り違え（#34、マージ済み。ブランチ `claude/fix-climber-tracking-e73faf`。最後に通したチェック: lint・typecheck・test・build・e2e @pose（garrett / eric）、2026-10-18 13:20 JST）
 
 - 原因: YOLO は見失ったとき確からしさ最大の人を選び、以後は前のコマの近くだけを見る。手前を横切った人・ビレイヤー（大きく写るので確からしさが高い）に一度乗り移ると戻らない

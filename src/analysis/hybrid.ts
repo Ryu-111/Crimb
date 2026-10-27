@@ -58,13 +58,18 @@ export const SAME_PERSON_DY = 0.06
 
 const hipOf = (lm: Landmark[]) => ({ x: (lm[23]!.x + lm[24]!.x) / 2, y: (lm[23]!.y + lm[24]!.y) / 2 })
 
+/** 2 つの姿勢が同じ人を指しているか（腰の位置が近い） */
+export function samePerson(a: Landmark[], b: Landmark[]): boolean {
+  const p = hipOf(a)
+  const q = hipOf(b)
+  return Math.abs(p.x - q.x) < SAME_PERSON_DX && Math.abs(p.y - q.y) < SAME_PERSON_DY
+}
+
 /** 1 コマ分の合成。yolo は cocoToMediapipe で 33 点にしたもの */
 export function mergePose(mediapipe: Landmark[] | null, yolo: Landmark[] | null): Landmark[] | null {
   if (!yolo) return mediapipe
   if (!mediapipe) return yolo
-  const a = hipOf(mediapipe)
-  const b = hipOf(yolo)
-  return Math.abs(a.x - b.x) < SAME_PERSON_DX && Math.abs(a.y - b.y) < SAME_PERSON_DY ? mediapipe : yolo
+  return samePerson(mediapipe, yolo) ? mediapipe : yolo
 }
 
 /** この確からしさ未満の人は捨てる */

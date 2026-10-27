@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { cocoToMediapipe, decodeYolo, mergePose } from './hybrid'
+import { cocoToMediapipe, decodeYolo, mergePose, samePerson } from './hybrid'
 import { LM } from './geometry'
 import type { Landmark } from './types'
 
@@ -38,6 +38,12 @@ describe('merging the two estimates', () => {
   it('takes YOLO when MediaPipe locked onto something else', () => {
     const yolo = at(0.3, 0.6)
     expect(mergePose(at(0.85, 0.3), yolo)).toBe(yolo)
+  })
+
+  it('tells whether two poses are the same person by the hips', () => {
+    expect(samePerson(at(0.5, 0.5), at(0.55, 0.53))).toBe(true)
+    expect(samePerson(at(0.5, 0.5), at(0.6, 0.5))).toBe(false)
+    expect(samePerson(at(0.5, 0.5), at(0.5, 0.58))).toBe(false)
   })
 
   it('uses whichever one found a person', () => {

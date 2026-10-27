@@ -1,7 +1,7 @@
 import { dropImplausiblePoses, fullBodyVisible, isImplausible, poseAt, torsoLength } from '../analysis/geometry'
 import type { Frame, Landmark, PoseTrack } from '../analysis/types'
 import { trackCamera, toGray, type Gray } from '../analysis/camera'
-import { mergePose } from '../analysis/hybrid'
+import { mergePose, samePerson } from '../analysis/hybrid'
 import { cropBox, uncrop } from './crop'
 import { getLandmarker } from './landmarker'
 import { seek } from './video'
@@ -13,6 +13,11 @@ export const SAMPLE_FPS = 15
 export const MAX_DURATION_SEC = 180
 /** 両方のモデルが見失ったとき、直前の姿勢からこのコマ数（約 2 秒）以内なら、その周りを探し直す */
 export const SEARCH_MAX_GAP = 30
+/**
+ * MediaPipe と YOLO が同じ人を指していて、MediaPipe がその人を追い続けている間は、YOLO はこのコマ数に 1 回だけ回す。
+ * YOLO は 1 コマで MediaPipe より重いので、解析時間の多くを占めていた
+ */
+export const YOLO_CHECK_EVERY = 3
 
 /** detectForVideo のタイムスタンプは解析をまたいで単調増加させる必要がある */
 let clock = 0
@@ -39,6 +44,9 @@ export async function extractPoseTrack(video: HTMLVideoElement, opts: ExtractOpt
   const smallCtx = small.getContext('2d', { willReadFrequently: true })
   // 直前に分かっている姿勢（MediaPipe か YOLO）。両方が見失ったコマで探し直す手がかりにする
   let last: { i: number; lm: Landmark[] } | null = null
+  // MediaPipe と YOLO が最後に同じ人を指したコマと、直前のコマの MediaPipe の姿勢
+  let agreed = -Infinity
+  let prevLm: Frame['lm'] = null
   for (let i = 0; i <= total; i++) {
     if (opts.signal?.aborted) throw new DOMException('解析を中止しました', 'AbortError')
     const t = Math.min(i * step, duration)
@@ -47,12 +55,19 @@ export async function extractPoseTrack(video: HTMLVideoElement, opts: ExtractOpt
     const lm = detect(landmarker, video)
     frames.push({ t, lm })
     if (yolo) {
-      let y = await yolo.detect(video)
-      if (!lm && !y && last && i - last.i <= SEARCH_MAX_GAP) y = await yolo.search(video, last.lm)
+      let y: Frame['lm'] = null
+      // MediaPipe が別の人や壁の模様に飛び移ったら（腰が大きく動いたら）、すぐ YOLO で確かめる
+      if (lm && prevLm && samePerson(lm, prevLm) && i - agreed < YOLO_CHECK_EVERY) yolo.follow(video, lm)
+      else {
+        y = await yolo.detect(video)
+        if (!lm && !y && last && i - last.i <= SEARCH_MAX_GAP) y = await yolo.search(video, last.lm)
+        if (lm && y && samePerson(lm, y)) agreed = i
+      }
       yoloFrames.push(y)
       const known = mergePose(lm, y)
       if (known) last = { i, lm: known }
     }
+    prevLm = lm
     if (smallCtx) {
       smallCtx.drawImage(video, 0, 0, small.width, small.height)
       grays.push(toGray(smallCtx.getImageData(0, 0, small.width, small.height).data, small.width, small.height))

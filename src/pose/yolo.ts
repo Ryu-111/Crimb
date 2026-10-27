@@ -3,7 +3,7 @@ import * as ort from 'onnxruntime-web/wasm'
 import type { Landmark } from '../analysis/types'
 import { cocoToMediapipe, decodeYolo, type YoloPerson } from '../analysis/hybrid'
 import { cutOff, pickPerson } from '../analysis/person'
-import { searchBox } from './crop'
+import { cropBox, searchBox } from './crop'
 
 /** scripts/fetch-models.mjs が public/models/ に置く */
 const MODEL_PATH = 'models/yolo11n-pose.onnx'
@@ -87,6 +87,16 @@ export class YoloTracker {
     } else this.cut = 0
     this.prev = { cx: best.box.cx, cy: best.box.cy, size: Math.max(best.box.w, best.box.h) * ROI_SCALE }
     return cocoToMediapipe(best.kp.map((p) => ({ x: p.x / W, y: p.y / H, v: p.v })))
+  }
+
+  /**
+   * YOLO を回さなかったコマで、別の手がかり（MediaPipe）で分かった人の位置 lm（正規化画像座標）に切り抜きを合わせる。
+   * 次に回したときの切り抜きが、動いた人からずれないようにする
+   */
+  follow(video: HTMLVideoElement, lm: Landmark[]): void {
+    const b = cropBox(lm, video.videoWidth, video.videoHeight, ROI_SCALE)
+    this.prev = { cx: b.x + b.size / 2, cy: b.y + b.size / 2, size: b.size }
+    this.lost = 0
   }
 
   /**

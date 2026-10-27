@@ -1,5 +1,5 @@
 // YOLO11n-pose（Ultralytics, AGPL-3.0）で人を探す。MediaPipe が見失う後ろ向き・暗い服・小さく写る人の補助に使う（src/analysis/hybrid.ts）
-import * as ort from 'onnxruntime-web/wasm'
+import * as ort from 'onnxruntime-web/webgpu'
 import type { Landmark } from '../analysis/types'
 import { cocoToMediapipe, decodeYolo, type YoloPerson } from '../analysis/hybrid'
 import { cutOff, pickPerson } from '../analysis/person'
@@ -26,12 +26,44 @@ function load(): Promise<ort.InferenceSession> {
       if (!res.ok) throw new Error(`YOLO のモデルを取得できませんでした (${res.status})`)
       return res.arrayBuffer()
     })
-    .then((buf) => ort.InferenceSession.create(new Uint8Array(buf), { executionProviders: ['wasm'] }))
+    .then((buf) => fastest(new Uint8Array(buf)))
     .catch((e) => {
       session = null
       throw e
     })
   return session
+}
+
+/**
+ * GPU（WebGPU）と CPU（wasm）で 1 回ずつ試して、速いほうのセッションを使う。
+ * GPU が速い端末が多いが、GPU が非力な端末では CPU のほうが速いので、決め打ちしない。
+ * GPU を CPU で真似ている代用の GPU（isFallbackAdapter）は、試すだけで十数秒かかるので最初から使わない
+ */
+async function fastest(model: Uint8Array): Promise<ort.InferenceSession> {
+  const input = new ort.Tensor('float32', new Float32Array(3 * ROI_INPUT * ROI_INPUT), [1, 3, ROI_INPUT, ROI_INPUT])
+  const gpu = await navigator.gpu?.requestAdapter().catch(() => null)
+  const eps = gpu && !gpu.info.isFallbackAdapter ? (['webgpu', 'wasm'] as const) : (['wasm'] as const)
+  let best: { sess: ort.InferenceSession; ms: number; ep: string } | null = null
+  for (const ep of eps) {
+    const sess = await ort.InferenceSession.create(model, { executionProviders: [ep] }).catch(() => null)
+    if (!sess) continue
+    const feeds = { [sess.inputNames[0]!]: input }
+    // 1 回目は準備（シェーダーのコンパイルなど）が入るので測らない。推定できなければ使わない
+    const ms = await sess
+      .run(feeds)
+      .then(() => {
+        const t0 = performance.now()
+        return sess.run(feeds).then(() => performance.now() - t0)
+      })
+      .catch(() => Infinity)
+    if (ms < (best?.ms ?? Infinity)) {
+      await best?.sess.release()
+      best = { sess, ms, ep }
+    } else await sess.release()
+  }
+  if (!best) throw new Error('YOLO のモデルを読み込めませんでした')
+  console.info(`YOLO-pose: ${best.ep} で推定（1 コマ ${Math.round(best.ms)} ms）`)
+  return best.sess
 }
 
 /**

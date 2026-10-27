@@ -22,7 +22,7 @@
 - 入れた変更
   1. `4ea36b4`: MediaPipe と YOLO が同じ人を指している間は、YOLO を 3 コマに 1 回だけ回す（`YOLO_CHECK_EVERY`、`YoloTracker.follow`）。YOLO の回数 garrett 230 → 143、eric 448 → 283。YOLO の時間 30 → 20 秒、49 → 37 秒。指標は期待範囲内（下の回帰）
   2. `a3be7ba`: YOLO を WebGPU と wasm で 1 回ずつ試して速いほうを使う。代用の GPU（`isFallbackAdapter`）は除く。SwiftShader の WebGPU でも人の検出・指標は wasm と同等（正しさの確認）。実機 GPU での速さは未計測
-- Pose regression（garrett / eric）: 今の版で実行中（結果は追記する）
+- Pose regression（今の版、手元）: garrett 通過（検出率 0.98・手 5・足 9）、eric 通過（0.95・11・10）。壁の凹凸のテストは huggingface.co に届かずこの環境では失敗（Failed to fetch。変更していない処理。CI で確かめる）
 - 同じビルドでも指標は実行ごとに少し揺れる（eric の手 12〜15、検出率 0.89〜0.94）。比べるときは複数回か期待範囲で見る
 - 次の一手: 実機（プレビュー）で解析時間を比べる。コンソールに `YOLO-pose: webgpu / wasm で推定（1 コマ N ms）` が出る。残る候補は検出し直しの回数を減らす（YOLO の姿勢で代えられるコマは代える）と、シークをやめて再生しながら取り出す（`requestVideoFrameCallback`）
 

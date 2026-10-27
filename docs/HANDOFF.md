@@ -13,6 +13,19 @@
 
 ## 現在（2026-10-18 更新: Claude Code・夜間の自律作業）
 
+### 解析時間の短縮（ブランチ `ccr-2578f9ba-cbz2gr`、2026-10-27 Claude Code。PR は未作成）
+
+- 測り方: `extractPoseTrack` の各段階に `performance.now()` の計測を一時的に入れたビルド（コミットしていない）で、garrett（15 秒）/ eric（30 秒）をヘッドレス Chromium で解析。この環境の MediaPipe は GPU がなくソフトウェア WebGL なので、MediaPipe の時間はスマホより大きく出る。YOLO（wasm）とシークはスマホと同じ仕組み
+- 内訳（main、秒）: garrett 計 174〜189 = MediaPipe 63〜65 / 検出し直し 58〜72 / YOLO 30〜31 / シーク 17。eric 計 236〜246 = MediaPipe 125 / YOLO 49〜55 / 検出し直し 30〜34 / シーク 23
+  - 検出し直しの中身（garrett）: 93 回試して 88 回成功。推定 66 秒（1 回約 0.7 秒。IMAGE モードは毎回人の検出から行うので VIDEO モードの約 2.5 倍）、シーク 6 秒、モード切り替えはほぼ 0
+  - 検出し直しを丸ごとやめると garrett は 174 → 126 秒だが、手ぶれの指標（shakeRatio）が 0.03 → 0.17 に崩れた。やめない
+- 入れた変更
+  1. `4ea36b4`: MediaPipe と YOLO が同じ人を指している間は、YOLO を 3 コマに 1 回だけ回す（`YOLO_CHECK_EVERY`、`YoloTracker.follow`）。YOLO の回数 garrett 230 → 143、eric 448 → 283。YOLO の時間 30 → 20 秒、49 → 37 秒。指標は期待範囲内（下の回帰）
+  2. `a3be7ba`: YOLO を WebGPU と wasm で 1 回ずつ試して速いほうを使う。代用の GPU（`isFallbackAdapter`）は除く。SwiftShader の WebGPU でも人の検出・指標は wasm と同等（正しさの確認）。実機 GPU での速さは未計測
+- Pose regression（garrett / eric）: 今の版で実行中（結果は追記する）
+- 同じビルドでも指標は実行ごとに少し揺れる（eric の手 12〜15、検出率 0.89〜0.94）。比べるときは複数回か期待範囲で見る
+- 次の一手: 実機（プレビュー）で解析時間を比べる。コンソールに `YOLO-pose: webgpu / wasm で推定（1 コマ N ms）` が出る。残る候補は検出し直しの回数を減らす（YOLO の姿勢で代えられるコマは代える）と、シークをやめて再生しながら取り出す（`requestVideoFrameCallback`）
+
 ### 依存の脆弱性（ブランチ `ccr-2578f9ba-cbz2gr`、2026-10-21 Claude Code。PR は未作成）
 
 - `npm audit` の指摘は 1 件: `uuid@7.0.3`（GHSA-w5hq-g745-h8pq、moderate）。`@capacitor/cli` → `xcode@3.0.1` → `uuid` の経路で、Android ビルド用の CLI の中だけ。アプリには入らない

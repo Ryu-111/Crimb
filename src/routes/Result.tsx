@@ -53,7 +53,12 @@ function ResultView({ meta, createdAt, track, analysis, videoUrl, route, onRoute
       <Timeline analysis={analysis} duration={metrics.durationSec} onSeek={seek} />
       <div>
         <h2 className="mb-2 font-semibold">改善ポイント</h2>
-        <AdviceList advice={advice} onJump={seek} />
+        {/* 速い解析は MediaPipe だけなので、人を見失って撮り直しを勧めることがある。精度を上げた結果を待つ */}
+        {refine?.status === 'running' && advice.some((a) => a.id === 'capture') ? (
+          <p className="text-sm text-slate-400">精度を上げる解析が終わると、改善ポイントを出します。</p>
+        ) : (
+          <AdviceList advice={advice} onJump={seek} />
+        )}
       </div>
       {analysis.moves.length > 0 && (
         <div>

@@ -22,7 +22,11 @@
 - 入れた変更
   1. `4ea36b4`: MediaPipe と YOLO が同じ人を指している間は、YOLO を 3 コマに 1 回だけ回す（`YOLO_CHECK_EVERY`、`YoloTracker.follow`）。YOLO の回数 garrett 230 → 143、eric 448 → 283。YOLO の時間 30 → 20 秒、49 → 37 秒。指標は期待範囲内（下の回帰）
   2. `a3be7ba`: YOLO を WebGPU と wasm で 1 回ずつ試して速いほうを使う。代用の GPU（`isFallbackAdapter`）は除く。SwiftShader の WebGPU でも人の検出・指標は wasm と同等（正しさの確認）。実機 GPU での速さは未計測
-- Pose regression（今の版、手元）: garrett 通過（検出率 0.98・手 5・足 9）、eric 通過（0.95・11・10）。壁の凹凸のテストは huggingface.co に届かずこの環境では失敗（Failed to fetch。変更していない処理。CI で確かめる）
+  3. `e96d46a` / `a156abb`（2026-11-10、ユーザーの依頼「MediaPipe の後に裏で解析」）: MediaPipe だけの速い解析（`extractPoseTrack` → `QuickTrack`）で先に結果画面を出し、YOLO と検出し直し（`refinePoseTrack`）は結果画面の裏で続ける（`src/pose/refine.ts`、`RefineStatus`）。終わったら下書きの姿勢・解析を置き換え、途中で保存していればその記録の `tracks` も置き換える。途中は撮り直しの指摘（`capture`）を出さず待つよう表示
+     - 時間（ヘッドレス Chromium、`e2e/zz-prof.spec.ts` 相当の手元のテストで、解析スタートから結果画面まで / 裏の解析）: garrett 90 秒 / 94 秒（前は結果まで約 180 秒）、eric 138 秒（警告の後から）/ 54 秒（前は約 235 秒）
+     - 速い解析だけの指標: garrett は検出率 0.61・手 4・足 6（裏の解析後 0.98・5・9）、eric は 0.94・14・16（後 0.94・14・16）。garrett のように MediaPipe が人を見失いやすい動画では、最初の数十秒は粗い結果になる
+     - テスト: 回帰と奥行きのテストは `__crimbRefined` が false でなくなるまで待ってから読む
+- Pose regression（3 の後、手元）: garrett 通過（0.98・6・9）、eric 通過（0.93・12・13）、app.spec 4 件通過。壁の凹凸のテストは huggingface.co に届かずこの環境では失敗（Failed to fetch。変更していない処理。CI で確かめる）
 - 同じビルドでも指標は実行ごとに少し揺れる（eric の手 12〜15、検出率 0.89〜0.94）。比べるときは複数回か期待範囲で見る
 - 次の一手: 実機（プレビュー）で解析時間を比べる。コンソールに `YOLO-pose: webgpu / wasm で推定（1 コマ N ms）` が出る。残る候補は検出し直しの回数を減らす（YOLO の姿勢で代えられるコマは代える）と、シークをやめて再生しながら取り出す（`requestVideoFrameCallback`）
 

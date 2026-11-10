@@ -33,6 +33,10 @@ test.describe('@pose depth', () => {
       page.waitForURL(/#\/result/, { timeout: 600_000 }),
     ])
     await page.waitForURL(/#\/result/, { timeout: 600_000 })
+    // 精度を上げる解析と奥行きの推定が同時に走って遅くならないよう、終わるのを待つ
+    await page.waitForFunction(() => (globalThis as unknown as { __crimbRefined: unknown }).__crimbRefined !== false, null, {
+      timeout: 600_000,
+    })
 
     const bottom = holds.reduce((a, h) => (h.y > a.y ? h : a))
     const img = page.getByTestId('route-frame')

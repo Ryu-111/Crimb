@@ -27,38 +27,70 @@ export interface ExtractOptions {
   signal?: AbortSignal
 }
 
-/** 動画を一定間隔でシークして姿勢を推定し、補間・平滑化した時系列を返す */
-export async function extractPoseTrack(video: HTMLVideoElement, opts: ExtractOptions = {}): Promise<PoseTrack> {
+/** 速い解析の結果。track はすぐ表示に使い、raw は後から精度を上げる解析（refinePoseTrack）に渡す */
+export interface QuickTrack {
+  track: PoseTrack
+  /** MediaPipe の生の結果（補間・平滑化の前） */
+  raw: PoseTrack
+}
+
+/**
+ * 動画を一定間隔でシークして MediaPipe で姿勢を推定し、補間・平滑化した時系列を返す（速い解析）。
+ * YOLO での補いと見失ったコマの検出し直しは重いので、結果を見せた後に refinePoseTrack で行う
+ */
+export async function extractPoseTrack(video: HTMLVideoElement, opts: ExtractOptions = {}): Promise<QuickTrack> {
   const landmarker = await getLandmarker()
-  // MediaPipe が見失う人（後ろ向き・暗い服・小さく写る）を YOLO-pose で補う。読み込めなければ MediaPipe だけで続ける
-  const yolo = await import('./yolo').then((m) => m.YoloTracker.create()).catch(() => null)
   const duration = Math.min(video.duration || 0, MAX_DURATION_SEC)
   const step = 1 / SAMPLE_FPS
   const total = Math.max(1, Math.floor(duration / step))
   const frames: Frame[] = []
-  const yoloFrames: Frame['lm'][] = []
   const grays: Gray[] = []
   const small = document.createElement('canvas')
   small.width = CAMERA_TRACK_WIDTH
   small.height = Math.round((video.videoHeight / video.videoWidth) * CAMERA_TRACK_WIDTH) || CAMERA_TRACK_WIDTH
   const smallCtx = small.getContext('2d', { willReadFrequently: true })
-  // 直前に分かっている姿勢（MediaPipe か YOLO）。両方が見失ったコマで探し直す手がかりにする
-  let last: { i: number; lm: Landmark[] } | null = null
-  // MediaPipe と YOLO が最後に同じ人を指したコマと、直前のコマの MediaPipe の姿勢
-  let agreed = -Infinity
-  let prevLm: Frame['lm'] = null
   for (let i = 0; i <= total; i++) {
     if (opts.signal?.aborted) throw new DOMException('解析を中止しました', 'AbortError')
     const t = Math.min(i * step, duration)
     await seek(video, t)
     clock += step * 1000
-    const lm = detect(landmarker, video)
-    frames.push({ t, lm })
-    if (yolo) {
+    frames.push({ t, lm: detect(landmarker, video) })
+    if (smallCtx) {
+      smallCtx.drawImage(video, 0, 0, small.width, small.height)
+      grays.push(toGray(smallCtx.getImageData(0, 0, small.width, small.height).data, small.width, small.height))
+    }
+    opts.onProgress?.(i / total)
+  }
+  const raw: PoseTrack = { fps: SAMPLE_FPS, width: video.videoWidth, height: video.videoHeight, frames }
+  const cleaned = cleanFrames(frames)
+  // カメラのずれは壁の模様から求めるので、後の精度を上げる解析でも同じものを使う
+  const camera = grays.length === cleaned.length ? cameraOffsets(grays, cleaned) : undefined
+  return { track: { ...raw, frames: cleaned, camera }, raw: { ...raw, camera } }
+}
+
+/**
+ * 速い解析の結果 raw の精度を上げる。MediaPipe が見失う人（後ろ向き・暗い服・小さく写る）を YOLO-pose で補い、
+ * 見失ったコマ・ありえない姿勢のコマを切り抜いて検出し直す。動画をもう一度頭からシークする
+ */
+export async function refinePoseTrack(video: HTMLVideoElement, raw: PoseTrack, opts: ExtractOptions = {}): Promise<PoseTrack> {
+  const landmarker = await getLandmarker()
+  // YOLO を読み込めなければ、検出し直しだけ行う
+  const yolo = await import('./yolo').then((m) => m.YoloTracker.create()).catch(() => null)
+  const yoloFrames: Frame['lm'][] = []
+  if (yolo) {
+    // 直前に分かっている姿勢（MediaPipe か YOLO）。両方が見失ったコマで探し直す手がかりにする
+    let last: { i: number; lm: Landmark[] } | null = null
+    // MediaPipe と YOLO が最後に同じ人を指したコマと、直前のコマの MediaPipe の姿勢
+    let agreed = -Infinity
+    let prevLm: Frame['lm'] = null
+    for (const [i, f] of raw.frames.entries()) {
+      if (opts.signal?.aborted) throw new DOMException('解析を中止しました', 'AbortError')
+      const lm = f.lm
       let y: Frame['lm'] = null
       // MediaPipe が別の人や壁の模様に飛び移ったら（腰が大きく動いたら）、すぐ YOLO で確かめる
       if (lm && prevLm && samePerson(lm, prevLm) && i - agreed < YOLO_CHECK_EVERY) yolo.follow(video, lm)
       else {
+        await seek(video, f.t)
         y = await yolo.detect(video)
         if (!lm && !y && last && i - last.i <= SEARCH_MAX_GAP) y = await yolo.search(video, last.lm)
         if (lm && y && samePerson(lm, y)) agreed = i
@@ -66,19 +98,15 @@ export async function extractPoseTrack(video: HTMLVideoElement, opts: ExtractOpt
       yoloFrames.push(y)
       const known = mergePose(lm, y)
       if (known) last = { i, lm: known }
+      prevLm = lm
+      // 検出し直しの分を残して、YOLO までで 8 割とする
+      opts.onProgress?.((0.8 * i) / raw.frames.length)
     }
-    prevLm = lm
-    if (smallCtx) {
-      smallCtx.drawImage(video, 0, 0, small.width, small.height)
-      grays.push(toGray(smallCtx.getImageData(0, 0, small.width, small.height).data, small.width, small.height))
-    }
-    opts.onProgress?.(i / total)
   }
-  const track: PoseTrack = { fps: SAMPLE_FPS, width: video.videoWidth, height: video.videoHeight, frames }
-  const detected = await redetect(landmarker, video, track, opts.signal)
+  const detected = await redetect(landmarker, video, raw, opts.signal)
+  opts.onProgress?.(1)
   const merged = yolo ? detected.map((f, i) => ({ ...f, lm: mergePose(f.lm, yoloFrames[i] ?? null) })) : detected
-  const cleaned = cleanFrames(merged)
-  return { ...track, frames: cleaned, camera: grays.length === cleaned.length ? cameraOffsets(grays, cleaned) : undefined }
+  return { ...raw, frames: cleanFrames(merged) }
 }
 
 /** カメラのずれを求める画像の幅（ピクセル） */

@@ -17,19 +17,23 @@ export interface Draft {
 interface DraftState {
   draft: Draft | null
   setDraft: (d: Draft | null) => void
+  /** 今の下書きを元に書き換える（画面を離れた後に終わる処理から使う） */
+  updateDraft: (f: (d: Draft | null) => Draft | null) => void
 }
 
 const Ctx = createContext<DraftState | null>(null)
 
 export function DraftProvider({ children }: { children: ReactNode }) {
   const [draft, setDraftState] = useState<Draft | null>(null)
-  const setDraft = (d: Draft | null) => {
+  const updateDraft = (f: (d: Draft | null) => Draft | null) => {
     setDraftState((prev) => {
+      const d = f(prev)
       if (prev && prev.url !== d?.url) URL.revokeObjectURL(prev.url)
       return d
     })
   }
-  return <Ctx.Provider value={{ draft, setDraft }}>{children}</Ctx.Provider>
+  const setDraft = (d: Draft | null) => updateDraft(() => d)
+  return <Ctx.Provider value={{ draft, setDraft, updateDraft }}>{children}</Ctx.Provider>
 }
 
 export function useDraft(): DraftState {

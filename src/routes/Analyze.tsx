@@ -5,10 +5,12 @@ import { MAX_DURATION_SEC, checkFullBody, extractPoseTrack } from '../pose/extra
 import { CAMERA_SHIFT_LIMIT } from '../analysis/camera'
 import { cameraShift, captureThumbnail, loadVideo } from '../pose/video'
 import { useDraft } from '../lib/draft'
+import { cancelRefine, startRefine } from '../pose/refine'
+import { db } from '../db/db'
 import { formatEta } from '../lib/format'
 
 export default function Analyze() {
-  const { draft, setDraft } = useDraft()
+  const { draft, setDraft, updateDraft } = useDraft()
   const navigate = useNavigate()
   const [progress, setProgress] = useState(0)
   const [stage, setStage] = useState('モデルを準備中…')
@@ -35,6 +37,8 @@ export default function Analyze() {
       (l) => (disposed ? void l.release() : (lock = l)),
       () => {},
     )
+    // 前の動画の精度を上げる解析が残っていたら止める（姿勢推定のモデルを取り合わないように）
+    cancelRefine()
     ;(async () => {
       try {
         setStage('動画を読み込み中…')
@@ -52,7 +56,7 @@ export default function Analyze() {
         if (ctrl.signal.aborted) return
         setStage('姿勢を推定中…')
         const poseStart = Date.now()
-        const track = await extractPoseTrack(video, {
+        const { track, raw } = await extractPoseTrack(video, {
           onProgress: (p) => {
             setProgress(p)
             setEta(formatEta((Date.now() - poseStart) / 1000, p))
@@ -61,10 +65,26 @@ export default function Analyze() {
         })
         setStage('ムーブを解析中…')
         const analysis = analyze(track, draft.meta.wallAngle, draft.meta.sent)
-        // E2E / 解析回帰テストから結果を読むためのフック
-        ;Object.assign(window, { __crimbLastAnalysis: analysis, __crimbLastTrack: track })
+        // E2E / 解析回帰テストから結果を読むためのフック（__crimbRefined は精度を上げる解析が終わったか）
+        ;Object.assign(window, { __crimbLastAnalysis: analysis, __crimbLastTrack: track, __crimbRefined: false })
         const thumbnail = await captureThumbnail(video, Math.min(video.duration / 2, 3))
         setDraft({ ...draft, track, analysis, thumbnail, createdAt: Date.now() })
+        // 結果を見せている間に精度を上げる解析を続け、終わったら下書き（保存済みなら記録）の姿勢を置き換える
+        const url = draft.url
+        startRefine(
+          url,
+          raw,
+          (refined, sessionId) => {
+            if (sessionId !== undefined) db.tracks.put({ sessionId, track: refined }).catch(() => {})
+            updateDraft((d) => {
+              if (d?.url !== url) return d
+              const next = analyze(refined, d.meta.wallAngle, d.meta.sent)
+              Object.assign(window, { __crimbLastAnalysis: next, __crimbLastTrack: refined, __crimbRefined: true })
+              return { ...d, track: refined, analysis: next }
+            })
+          },
+          () => Object.assign(window, { __crimbRefined: 'failed' }),
+        )
         navigate('/result', { replace: true })
       } catch (e) {
         if ((e as Error).name !== 'AbortError') setError((e as Error).message)

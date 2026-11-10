@@ -7,6 +7,7 @@ import AdviceList from '../components/AdviceList'
 import MetaFields from '../components/MetaFields'
 import MetricGrid from '../components/MetricGrid'
 import MoveList from '../components/MoveList'
+import RefineStatus from '../components/RefineStatus'
 import RouteSection from '../components/RouteSection'
 import Timeline from '../components/Timeline'
 import VideoOverlay, { type VideoOverlayHandle } from '../components/VideoOverlay'
@@ -14,6 +15,7 @@ import { db, deleteSession, previousSession, saveSession, type SavedRoute, type 
 import { useDraft } from '../lib/draft'
 import { formatDate } from '../lib/format'
 import { useObjectUrl } from '../lib/useObjectUrl'
+import { attachSession, cancelRefine, useRefine, type RefineState } from '../pose/refine'
 
 interface ViewProps {
   meta: SessionMeta
@@ -24,10 +26,12 @@ interface ViewProps {
   route?: SavedRoute
   onRouteChange?: (route: SavedRoute | undefined) => void
   sessionId?: number
+  /** この記録の精度を上げる解析が動いていれば、その状態 */
+  refine?: RefineState
   children?: React.ReactNode
 }
 
-function ResultView({ meta, createdAt, track, analysis, videoUrl, route, onRouteChange, sessionId, children }: ViewProps) {
+function ResultView({ meta, createdAt, track, analysis, videoUrl, route, onRouteChange, sessionId, refine, children }: ViewProps) {
   const { metrics, advice } = analysis
   const overlay = useRef<VideoOverlayHandle>(null)
   const seek = videoUrl ? (t: number) => overlay.current?.seek(t) : undefined
@@ -44,6 +48,7 @@ function ResultView({ meta, createdAt, track, analysis, videoUrl, route, onRoute
         </p>
         {meta.notes && <p className="mt-1 text-sm whitespace-pre-wrap text-slate-300">{meta.notes}</p>}
       </header>
+      {refine && <RefineStatus state={refine} />}
       <VideoOverlay ref={overlay} src={videoUrl} track={track} />
       <Timeline analysis={analysis} duration={metrics.durationSec} onSeek={seek} />
       <div>
@@ -95,6 +100,7 @@ export function DraftResult() {
   const [saveError, setSaveError] = useState<string>()
   const [saving, setSaving] = useState(false)
   const [route, setRoute] = useState<SavedRoute>()
+  const refine = useRefine()
   if (!draft?.track || !draft.analysis || !draft.createdAt) return <Navigate to="/new" replace />
   const { track, analysis, createdAt } = draft
 
@@ -130,6 +136,8 @@ export function DraftResult() {
       setSaving(false)
       return
     }
+    // 精度を上げる解析の途中なら、終わったときにこの記録の姿勢も置き換える
+    attachSession(draft.url, id)
     // draft はここでは消さない（React Router の遷移は transition 扱いのため、先に draft が消えて
     // /new へリダイレクトされてしまう）。次の解析開始時に置き換えられ、そのとき Object URL も破棄される
     navigate(`/session/${id}`, { replace: true })
@@ -144,6 +152,7 @@ export function DraftResult() {
       videoUrl={draft.url}
       route={route}
       onRouteChange={setRoute}
+      refine={refine?.url === draft.url ? refine : undefined}
     >
       <div className="space-y-3 rounded-xl bg-slate-800/50 p-4">
         <label className="flex items-center gap-2 text-sm">
@@ -162,7 +171,13 @@ export function DraftResult() {
             {saveError}
           </p>
         )}
-        <button className="min-h-11 w-full py-2 text-sm text-slate-400" onClick={() => navigate('/new')}>
+        <button
+          className="min-h-11 w-full py-2 text-sm text-slate-400"
+          onClick={() => {
+            cancelRefine()
+            navigate('/new')
+          }}
+        >
           保存せずに戻る
         </button>
       </div>
@@ -180,6 +195,7 @@ export function SavedResult() {
   const video = useLiveQuery(() => db.videos.get(id), [id])
   const videoUrl = useObjectUrl(video?.blob)
   const [editing, setEditing] = useState<SessionMeta>()
+  const refine = useRefine()
 
   // 解析ロジックが改善されたときに古い記録にも新しい改善案を出せるよう、保存済みの姿勢から再計算
   const analysis = useMemo(
@@ -221,6 +237,7 @@ export function SavedResult() {
       route={session.route}
       onRouteChange={(r) => db.sessions.update(id, { route: r }).catch(() => {})}
       sessionId={id}
+      refine={refine?.sessionId === id ? refine : undefined}
     >
       {editing ? (
         <div className="space-y-3 rounded-xl bg-slate-800/50 p-4">

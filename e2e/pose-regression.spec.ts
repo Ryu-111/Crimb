@@ -48,6 +48,12 @@ test.describe('@pose regression', () => {
       const cameraWarning = first === 'warned' && (await page.getByText('カメラが動いているようです').isVisible())
       if (first === 'warned') await proceed.click()
       await page.waitForURL(/#\/result/, { timeout: 600_000 })
+      // 結果画面は速い解析の結果で先に出る。精度を上げる解析が終わってから読む
+      await page.waitForFunction(() => (globalThis as unknown as { __crimbRefined: unknown }).__crimbRefined !== false, null, {
+        timeout: 600_000,
+      })
+      expect(await page.evaluate(() => (globalThis as unknown as { __crimbRefined: unknown }).__crimbRefined)).toBe(true)
+      await expect(page.getByText('精度を上げた結果に更新しました')).toBeVisible()
       const result = (await page.evaluate(
         () => (globalThis as unknown as { __crimbLastAnalysis: unknown }).__crimbLastAnalysis,
       )) as AnalysisResult
